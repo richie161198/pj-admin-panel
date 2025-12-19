@@ -55,7 +55,7 @@ const RegisterAdmin = () => {
   React.useEffect(() => {
     if (!isLoggedIn) {
       toast.error("You must be logged in to access this page");
-      navigate("/");
+      navigate("/login");
       return;
     }
     

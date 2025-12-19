@@ -82,13 +82,13 @@ const Profile = ({ sticky }) => {
       // Also clear Redux state
       dispatch(logOut());
       // Navigate to login after token is removed
-      navigate("/", { replace: true });
+      navigate("/login", { replace: true });
     } catch (error) {
       console.error('Logout error:', error);
       // Even if logout fails, try to clear local state and navigate
       dispatch(logOut());
       localStorage.removeItem("user");
-      navigate("/", { replace: true });
+      navigate("/login", { replace: true });
     }
   };
   return (

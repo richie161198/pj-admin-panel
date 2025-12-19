@@ -199,6 +199,8 @@ const Orders = () => {
         </div>
       </div>
 
+{/* // 9384524137 */}
+
       {/* Summary Cards */}
       {summary && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -220,7 +222,7 @@ const Orders = () => {
               </div>
               <div className="ml-4">
                 <p className="text-sm text-gray-600 dark:text-gray-400">Total Revenue</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">₹{summary.totalAmount?.toLocaleString() || 0}</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">₹ {summary.totalAmount?.toLocaleString() || 0}</p>
               </div>
             </div>
           </div>
@@ -231,7 +233,7 @@ const Orders = () => {
               </div>
               <div className="ml-4">
                 <p className="text-sm text-gray-600 dark:text-gray-400">Average Order Value</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">₹{summary.averageOrderValue?.toLocaleString() || 0}</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">₹ {summary.averageOrderValue?.toLocaleString() || 0}</p>
               </div>
             </div>
           </div>
@@ -331,24 +333,25 @@ const Orders = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Payment
-                </th>
+                </th> */}
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Total
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Date
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                {/* <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Actions
-                </th>
+                </th> */}
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-gray-700">
               {orders.map((order) => (
                 // console.log(order,"sdsds"),
-                <tr key={order._id} className="hover:bg-gray-50 dark:hover:bg-slate-700">
+                <tr                        onClick={() => handleViewOrder(order._id)}
+ key={order._id} className="hover:bg-gray-50 dark:hover:bg-slate-700">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900 dark:text-white">
                       {order.orderCode || 'N/A'}
@@ -382,9 +385,9 @@ const Orders = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     {getStatusBadge(order.status)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  {/* <td className="px-6 py-4 whitespace-nowrap">
                     {getPaymentStatusBadge(order.paymentStatus)}
-                  </td>
+                  </td> */}
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900 dark:text-white">
                       ₹{order.totalAmount?.toLocaleString() || 0}
@@ -393,7 +396,7 @@ const Orders = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                     {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  {/* <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end space-x-2">
                       <Button
                         onClick={() => handleViewOrder(order._id)}
@@ -414,7 +417,7 @@ const Orders = () => {
                         <option value="refunded">Refunded</option>
                       </select>
                     </div>
-                  </td>
+                  </td> */}
                 </tr>
               ))}
             </tbody>

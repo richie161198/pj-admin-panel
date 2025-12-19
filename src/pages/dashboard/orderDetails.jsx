@@ -1,6 +1,8 @@
-import React from "react";
-import { useParams } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useGetAllProductOrdersAdminQuery } from "@/store/api/order/orderApi";
+import { toast } from "react-toastify";
+import { getToken } from "@/utils/auth";
 import Card from "@/components/ui/Card";
 import Avatar from "@/components/ui/Avatar";
 import Badge from "@/components/ui/Badge";
@@ -16,12 +18,100 @@ const currency = (n) =>
 
 const OrderDetails = () => {
   const { id } = useParams();
-  
+  const navigate = useNavigate();
+  const [invoiceData, setInvoiceData] = useState(null);
+  const [trackingData, setTrackingData] = useState(null);
+  const [isLoadingInvoice, setIsLoadingInvoice] = useState(false);
+  const [isLoadingTracking, setIsLoadingTracking] = useState(false);
+
   // Fetch all orders to find the specific one
   const { data: ordersResponse, isLoading, error } = useGetAllProductOrdersAdminQuery({
     page: 1,
     limit: 1000, // Get all orders to find the specific one
   });
+
+  const orders = ordersResponse?.data?.orders || [];
+  const order = orders.find(o => o._id === id);
+
+  // Fetch invoice data
+  useEffect(() => {
+    if (order?._id && order?.orderCode) {
+      fetchInvoiceData();
+      fetchTrackingData();
+    }
+  }, [order?._id, order?.orderCode]);
+
+  const fetchInvoiceData = async () => {
+    if (!order?._id) return;
+    
+    setIsLoadingInvoice(true);
+    try {
+      const token = getToken();
+      // Query all invoices and find the one matching this order
+      const response = await fetch(
+        `http://35.154.139.118/api/v0/invoices?limit=1000`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.status && data.data && Array.isArray(data.data)) {
+          // Find invoice by orderId
+          const invoice = data.data.find(inv => 
+            inv.orderId && (
+              inv.orderId._id === order._id || 
+              inv.orderId === order._id ||
+              (typeof inv.orderId === 'string' && inv.orderId === order._id.toString())
+            )
+          );
+          if (invoice) {
+            setInvoiceData(invoice);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching invoice:', error);
+    } finally {
+      setIsLoadingInvoice(false);
+    }
+  };
+
+  const fetchTrackingData = async () => {
+    if (!order?.orderCode) return;
+    
+    setIsLoadingTracking(true);
+    try {
+      const token = getToken();
+      const response = await fetch(
+        `http://35.154.139.118/api/v0/shipments/bvc/track/order`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` }),
+          },
+          body: JSON.stringify({ orderCode: order.orderCode }),
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data) {
+          setTrackingData(data.data);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching tracking data:', error);
+    } finally {
+      setIsLoadingTracking(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -38,9 +128,6 @@ const OrderDetails = () => {
       </div>
     );
   }
-
-  const orders = ordersResponse?.data?.orders || [];
-  const order = orders.find(o => o._id === id);
 
   if (!order) {
     return (
@@ -85,6 +172,54 @@ const OrderDetails = () => {
         {config.label}
       </Badge>
     );
+  };
+
+  // Download invoice by order code
+  const handleDownloadInvoice = async () => {
+    if (!order?.orderCode) {
+      toast.error('Order code not found');
+      return;
+    }
+
+    try {
+      toast.info('Preparing invoice for download...');
+
+      const token = getToken();
+      const headers = {
+        'Content-Type': 'application/json',
+      };
+
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(
+        `http://35.154.139.118/api/v0/invoices/order/${order.orderCode}/download`,
+        {
+          method: 'GET',
+          headers: headers,
+        }
+      );
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Invoice-${order.orderCode}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        toast.success('Invoice downloaded successfully');
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        toast.error(errorData.message || 'Failed to download invoice');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Failed to download invoice');
+    }
   };
 
   return (
@@ -230,8 +365,10 @@ const OrderDetails = () => {
           <Card title="Order Information">
             <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Order ID</span>
-                <span className="text-sm font-medium">{order.orderId}</span>
+                <span className="text-sm text-gray-600">Invoice No.</span>
+                <span className="text-sm font-medium">
+                  {isLoadingInvoice ? 'Loading...' : (invoiceData?.invoiceNumber || 'N/A')}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Created</span>
@@ -249,28 +386,206 @@ const OrderDetails = () => {
                 <span className="text-sm text-gray-600">Items</span>
                 <span className="text-sm font-medium">{order.items?.length || 0}</span>
               </div>
+              {invoiceData?.customerDetails?.address && (
+                <div className="pt-2 border-t">
+                  <div className="text-sm text-gray-600 mb-1">Billing Address:</div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {invoiceData.customerDetails.address.street && (
+                      <div>{invoiceData.customerDetails.address.street}</div>
+                    )}
+                    {invoiceData.customerDetails.address.city && (
+                      <div>
+                        {invoiceData.customerDetails.address.city}
+                        {invoiceData.customerDetails.address.state && `, ${invoiceData.customerDetails.address.state}`}
+                        {invoiceData.customerDetails.address.pincode && ` - ${invoiceData.customerDetails.address.pincode}`}
+                      </div>
+                    )}
+                    {!invoiceData.customerDetails.address.street && !invoiceData.customerDetails.address.city && 'N/A'}
+                  </div>
+                </div>
+              )}
             </div>
           </Card>
 
           <Card title="Actions">
             <div className="space-y-3">
               <Button
-                onClick={() => navigate(`/invoice/product/${id}`)}
+                onClick={handleDownloadInvoice}
                 className="btn btn-primary w-full"
               >
                 <Icon icon="ph:file-text" className="mr-2" />
-                View Invoice
+                Download Invoice
               </Button>
-              <Button
+              {/* <Button
                 onClick={() => window.print()}
                 className="btn btn-outline w-full"
               >
                 <Icon icon="ph:printer" className="mr-2" />
                 Print Order
-              </Button>
+              </Button> */}
             </div>
           </Card>
         </div>
+      </div>
+
+      {/* Shipment Tracking Section */}
+      {order && (
+        <Card title="Shipment Tracking">
+          {isLoadingTracking ? (
+            <div className="flex justify-center items-center py-8">
+              <LoadingIcon />
+            </div>
+          ) : trackingData?.trackingHistory && trackingData.trackingHistory.length > 0 ? (
+            <TrackingTimeline
+              trackingHistory={trackingData.trackingHistory}
+              statusLabel={trackingData.statusLabel || trackingData.status}
+              docketNo={trackingData.docketNo}
+              orderDate={order.createdAt}
+            />
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <Icon icon="solar:box-line-duotone" className="text-4xl mx-auto mb-2 opacity-50" />
+              <p>No tracking information available</p>
+            </div>
+          )}
+        </Card>
+      )}
+    </div>
+  );
+};
+
+// Tracking Timeline Component
+const TrackingTimeline = ({ trackingHistory, statusLabel, docketNo, orderDate }) => {
+  // Sort tracking history by timestamp (oldest first)
+  const sortedHistory = [...trackingHistory].sort((a, b) => {
+    const timestampA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+    const timestampB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+    return timestampA - timestampB;
+  });
+
+  // Build timeline steps
+  const allSteps = [];
+  
+  // Add "Ordered" as first step
+  if (orderDate) {
+    allSteps.push({
+      status: 'Ordered',
+      statusCode: 'ORDERED',
+      date: new Date(orderDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+      time: new Date(orderDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+      city: '',
+      isOrdered: true,
+    });
+  }
+
+  // Add tracking history entries
+  sortedHistory.forEach((entry) => {
+    allSteps.push({
+      status: entry.status || 'Unknown',
+      statusCode: entry.statusCode || '',
+      date: entry.date || '',
+      time: entry.time || '',
+      city: entry.city || '',
+      timestamp: entry.timestamp,
+    });
+  });
+
+  const getIconForStatusCode = (statusCode) => {
+    if (!statusCode) return 'solar:info-circle-line-duotone';
+    const code = statusCode.toUpperCase();
+    switch (code) {
+      case 'AP': return 'solar:box-line-duotone';
+      case 'OP': return 'solar:delivery-line-duotone';
+      case 'NP': return 'solar:danger-triangle-line-duotone';
+      case 'CP': return 'solar:close-circle-line-duotone';
+      case 'IT': return 'solar:delivery-line-duotone';
+      case 'OFD': return 'solar:delivery-line-duotone';
+      case 'DL': return 'solar:check-circle-line-duotone';
+      case 'ORDERED': return 'solar:cart-line-duotone';
+      default: return 'solar:info-circle-line-duotone';
+    }
+  };
+
+  const getColorForStatusCode = (statusCode, isLatest) => {
+    if (!statusCode) return 'text-blue-500';
+    const code = statusCode.toUpperCase();
+    if (isLatest) {
+      switch (code) {
+        case 'DL': return 'text-green-500';
+        case 'CP':
+        case 'NP': return 'text-red-500';
+        case 'OFD': return 'text-orange-500';
+        default: return 'text-blue-500';
+      }
+    }
+    return 'text-blue-500';
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold text-gray-900 dark:text-white">Track Order</h3>
+          {docketNo && (
+            <p className="text-sm text-gray-500 mt-1">Docket: {docketNo}</p>
+          )}
+        </div>
+        <Badge className="bg-blue-100 text-blue-800 border-0">
+          {statusLabel}
+        </Badge>
+      </div>
+
+      {/* Timeline */}
+      <div className="relative">
+        {allSteps.map((step, index) => {
+          const isLatest = index === allSteps.length - 1;
+          const isCompleted = index < allSteps.length - 1;
+          const iconColor = getColorForStatusCode(step.statusCode, isLatest);
+
+          return (
+            <div key={index} className="relative flex gap-4 pb-6 last:pb-0">
+              {/* Timeline line */}
+              {index < allSteps.length - 1 && (
+                <div className="absolute left-4 top-8 bottom-0 w-0.5 bg-gray-200 dark:bg-gray-700" />
+              )}
+
+              {/* Icon */}
+              <div className={`relative z-10 flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                isCompleted || isLatest
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-400'
+              }`}>
+                <Icon
+                  icon={getIconForStatusCode(step.statusCode)}
+                  className={`text-lg ${isCompleted || isLatest ? 'text-white' : iconColor}`}
+                />
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 pt-1">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className={`font-medium ${
+                      isLatest
+                        ? 'text-blue-600 dark:text-blue-400'
+                        : 'text-gray-900 dark:text-gray-100'
+                    }`}>
+                      {step.status}
+                    </p>
+                    {step.city && (
+                      <p className="text-sm text-gray-500 mt-0.5">{step.city}</p>
+                    )}
+                  </div>
+                  <div className="text-right text-sm text-gray-500">
+                    {step.date && <div>{step.date}</div>}
+                    {step.time && <div>{step.time}</div>}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

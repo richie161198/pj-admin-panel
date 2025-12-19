@@ -81,12 +81,12 @@ export const menuItems = [
     isHeadr: true,
     title: "Support",
   },
-  {
-    title: "Customer Support",
-    isHide: true,
-    icon: "ph:headset",
-    link: "chat",
-  },
+  // {
+  //   title: "Customer Support",
+  //   isHide: true,
+  //   icon: "ph:headset",
+  //   link: "chat",
+  // },
   {
     title: "Tickets",
     isHide: true,

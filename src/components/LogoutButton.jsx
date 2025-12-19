@@ -17,7 +17,7 @@ const LogoutButton = ({ className = "btn btn-outline-danger" }) => {
       await logout();
       toast.success('Logged out successfully');
       // Navigate to login after token is removed
-      navigate('/', { replace: true });
+      navigate('/login', { replace: true });
     } catch (error) {
       console.error('Logout error:', error);
       toast.error('Failed to logout. Please try again.');

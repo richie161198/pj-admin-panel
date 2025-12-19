@@ -18,7 +18,9 @@ const InvestmentSettings = () => {
   const [settings, setSettings] = useState({
     gold: {
       enabled: true,
-      pricePerGram: 0,
+      price24kt: 0, // 24 karat price per gram
+      price22kt: 0, // 22 karat price per gram
+      price18kt: 0, // 18 karat price per gram
       pricePerOunce: 0,
     },
     silver: {
@@ -43,7 +45,6 @@ const InvestmentSettings = () => {
       silverHallmarking: 0.3,
     }
   });
-
   // Load settings from API when data is available
   useEffect(() => {
     if (investmentData?.data) {
@@ -53,7 +54,10 @@ const InvestmentSettings = () => {
         gold: {
           ...prev.gold,
           enabled: investmentData.data.goldStatus === true || investmentData.data.goldStatus === 'active',
-          pricePerGram: investmentData.data.goldPrice || 0,
+          // Map existing goldPrice to 24kt (for backward compatibility)
+          price24kt: investmentData.data.goldPrice24kt || investmentData.data.goldPrice || 0,
+          price22kt: investmentData.data.goldPrice22kt || 0,
+          price18kt: investmentData.data.goldPrice18kt || 0,
         },
         silver: {
           ...prev.silver,
@@ -78,7 +82,10 @@ const InvestmentSettings = () => {
     try {
       // Prepare data for API
       const requestData = {
-        goldRate: settings.gold.pricePerGram,
+        goldRate: settings.gold.price24kt, // Keep goldRate for backward compatibility (24kt)
+        goldRate24kt: settings.gold.price24kt,
+        goldRate22kt: settings.gold.price22kt,
+        goldRate18kt: settings.gold.price18kt,
         goldStatus: settings.gold.enabled,
         silverRate: settings.silver.pricePerGram,
         silverStatus: settings.silver.enabled,
@@ -201,31 +208,58 @@ const InvestmentSettings = () => {
                   </div>
 
                   {settings.gold.enabled && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          Gold Price (₹/gram)
+                          <span className="flex items-center gap-2">
+                            <Icon icon="ph:medal" className="text-yellow-500" />
+                            24 Karat Gold Price (₹/gram)
+                          </span>
                         </label>
                         <input
                           type="number"
-                          value={settings.gold.pricePerGram}
-                          onChange={(e) => handleInputChange('gold', 'pricePerGram', parseFloat(e.target.value))}
+                          value={settings.gold.price24kt}
+                          onChange={(e) => handleInputChange('gold', 'price24kt', parseFloat(e.target.value) || 0)}
                           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
                           step="0.01"
+                          placeholder="0.00"
                         />
+                        <p className="text-xs text-gray-500 mt-1">Pure gold (99.9% purity)</p>
                       </div>
-                      {/* <div>
+                      <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          Price per Ounce (₹)
+                          <span className="flex items-center gap-2">
+                            <Icon icon="ph:medal" className="text-yellow-600" />
+                            22 Karat Gold Price (₹/gram)
+                          </span>
                         </label>
                         <input
                           type="number"
-                          value={settings.gold.pricePerOunce}
-                          onChange={(e) => handleInputChange('gold', 'pricePerOunce', parseFloat(e.target.value))}
+                          value={settings.gold.price22kt}
+                          onChange={(e) => handleInputChange('gold', 'price22kt', parseFloat(e.target.value) || 0)}
                           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
                           step="0.01"
+                          placeholder="0.00"
                         />
-                      </div> */}
+                        <p className="text-xs text-gray-500 mt-1">91.67% purity</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          <span className="flex items-center gap-2">
+                            <Icon icon="ph:medal" className="text-yellow-700" />
+                            18 Karat Gold Price (₹/gram)
+                          </span>
+                        </label>
+                        <input
+                          type="number"
+                          value={settings.gold.price18kt}
+                          onChange={(e) => handleInputChange('gold', 'price18kt', parseFloat(e.target.value) || 0)}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
+                          step="0.01"
+                          placeholder="0.00"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">75% purity</p>
+                      </div>
                     </div>
                   )}
                 </div>
