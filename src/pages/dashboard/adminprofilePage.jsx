@@ -725,7 +725,7 @@ const AdminProfilePage = () => {
                 </div>
               </Card>
 
-              <Card title="Data & Privacy">
+              {/* <Card title="Data & Privacy">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
@@ -749,7 +749,7 @@ const AdminProfilePage = () => {
                     </label>
                   </div>
                 </div>
-              </Card>
+              </Card> */}
             </div>
           )}
 

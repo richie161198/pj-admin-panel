@@ -5,7 +5,7 @@ import Button from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
 import { toast } from 'react-toastify';
 import LoadingIcon from '@/components/LoadingIcon';
-import { useGetInvestmentSettingsQuery, useCreateInvestmentSettingsMutation } from '@/store/api/utils/utilsApi';
+import { useGetInvestmentSettingsQuery, useCreateInvestmentSettingsMutation, useGetInvestmentOptionQuery, useUpdateInvestmentOptionMutation } from '@/store/api/utils/utilsApi';
 
 const InvestmentSettings = () => {
   const navigate = useNavigate();
@@ -14,7 +14,10 @@ const InvestmentSettings = () => {
   // API hooks
   const { data: investmentData, isLoading: isFetching, error: fetchError, refetch } = useGetInvestmentSettingsQuery();
   const [createInvestmentSettings, { isLoading: isSaving }] = useCreateInvestmentSettingsMutation();
+  const { data: investmentOptionData, isLoading: isFetchingOption, refetch: refetchOption } = useGetInvestmentOptionQuery();
+  const [updateInvestmentOption, { isLoading: isUpdatingOption }] = useUpdateInvestmentOptionMutation();
 
+  const [investmentEnabled, setInvestmentEnabled] = useState(true);
   const [settings, setSettings] = useState({
     gold: {
       enabled: true,
@@ -45,6 +48,13 @@ const InvestmentSettings = () => {
       silverHallmarking: 0.3,
     }
   });
+  // Load investment option status
+  useEffect(() => {
+    if (investmentOptionData?.data) {
+      setInvestmentEnabled(investmentOptionData.data.investmentEnabled ?? true);
+    }
+  }, [investmentOptionData]);
+
   // Load settings from API when data is available
   useEffect(() => {
     if (investmentData?.data) {
@@ -76,6 +86,19 @@ const InvestmentSettings = () => {
         [field]: value
       }
     }));
+  };
+
+  const handleToggleInvestmentOption = async (e) => {
+    const newValue = e.target.checked;
+    try {
+      await updateInvestmentOption({ investmentEnabled: newValue }).unwrap();
+      setInvestmentEnabled(newValue);
+      toast.success(`Investment options ${newValue ? 'enabled' : 'disabled'} successfully`);
+      refetchOption();
+    } catch (error) {
+      console.error('Failed to update investment option:', error);
+      toast.error(error?.data?.message || 'Failed to update investment option');
+    }
   };
 
   const handleSave = async () => {
@@ -155,6 +178,39 @@ const InvestmentSettings = () => {
           Back to Dashboard
         </Button>
       </div>
+
+      {/* Investment Option Toggle */}
+      <Card>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Icon icon="ph:toggle-left" className="text-3xl text-blue-500" />
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Investment Options</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Enable or disable investment features globally. When disabled, all investment-related features will be unavailable.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-3">
+            <span className={`text-sm font-medium ${investmentEnabled ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+              {investmentEnabled ? 'Enabled' : 'Disabled'}
+            </span>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={investmentEnabled}
+                onChange={handleToggleInvestmentOption}
+                disabled={isUpdatingOption}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
+            </label>
+            {isUpdatingOption && (
+              <LoadingIcon />
+            )}
+          </div>
+        </div>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-1">

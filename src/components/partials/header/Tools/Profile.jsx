@@ -8,21 +8,56 @@ import { useDispatch, useSelector } from "react-redux";
 import { logOut } from "@/store/api/auth/authSlice";
 import { useAuth } from "@/contexts/AuthContext";
 import clsx from "clsx";
-import UserAvatar from "@/assets/images/avatar/avatar.jpg";
 
-const ProfileLabel = ({ sticky }) => {
+// Function to get user initials
+const getUserInitials = (name, email) => {
+  if (name) {
+    const nameParts = name.trim().split(' ');
+    if (nameParts.length >= 2) {
+      // First letter of first name + first letter of last name
+      return (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase();
+    } else if (nameParts.length === 1) {
+      // First two letters of single name
+      return nameParts[0].substring(0, 2).toUpperCase();
+    }
+  }
+  // Fallback to email
+  if (email) {
+    const emailName = email.split('@')[0];
+    return emailName.substring(0, 2).toUpperCase();
+  }
+  return 'AD';
+};
+
+const ProfileLabel = ({ sticky, user }) => {
+  const userName = user?.name || user?.email?.split('@')[0] || 'Admin';
+  const userRole = user?.role || 'admin';
+  const displayRole = userRole.replace(/_/g, ' ').replace(/-/g, ' ');
+  const initials = getUserInitials(user?.name, user?.email);
+  
   return (
-    <div
-      className={clsx(" rounded-full transition-all duration-300", {
-        "h-9 w-9": sticky,
-        "lg:h-12 lg:w-12 h-7 w-7": !sticky,
-      })}
-    >
-      <img
-        src={UserAvatar}
-        alt=""
-        className="block w-full h-full object-cover rounded-full ring-1 ring-indigo-700 ring-offset-4 dark:ring-offset-gray-700"
-      />
+    <div className="flex items-center space-x-2 rtl:space-x-reverse">
+      <div
+        className={clsx(
+          "rounded-full transition-all duration-300 flex items-center justify-center text-white font-semibold bg-indigo-600 dark:bg-indigo-500 ring-1 ring-indigo-700 ring-offset-4 dark:ring-offset-gray-700",
+          {
+            "h-9 w-9 text-xs": sticky,
+            "lg:h-12 lg:w-12 h-7 w-7 lg:text-base text-xs": !sticky,
+          }
+        )}
+      >
+        {initials}
+      </div>
+      {!sticky && (
+        <div className="hidden lg:block text-left rtl:text-right">
+          <div className="text-sm font-semibold text-gray-700 dark:text-white truncate max-w-[120px]">
+            {userName}
+          </div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 capitalize">
+            {displayRole}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -33,14 +68,7 @@ const Profile = ({ sticky }) => {
   const { user, logout } = useAuth();
 
   const ProfileMenu = [
-    {
-      label: "Profile",
-      icon: "ph:user-circle-light",
-      status: "green",
-      action: () => {
-        navigate("/profile");
-      },
-    },
+
     {
       label: "Admin Settings",
       icon: "ph:gear-light",
@@ -50,29 +78,21 @@ const Profile = ({ sticky }) => {
       },
     },
     {
-      label: "Withdraw Policy",
-      icon: "ph:money-light",
-      status: "green",
-      action: () => {
-        navigate("/withdraw-policy");
-      },
-    },
-    {
-      label: "Reports",
+      label: "Orders",
       icon: "ph:chart-bar-light",
       status: "blue",
       action: () => {
-        navigate("/chats");
+        navigate("/orders");
       },
     },
-    {
-      label: "Get Help",
-      icon: "ph:question-light",
-      status: "cyan",
-      action: () => {
-        navigate("/settings");
-      },
-    },
+    // {
+    //   label: "Get Help",
+    //   icon: "ph:question-light",
+    //   status: "cyan",
+    //   action: () => {
+    //     navigate("/settings");
+    //   },
+    // },
   ];
 
   const handleLogout = async () => {
@@ -91,25 +111,26 @@ const Profile = ({ sticky }) => {
       navigate("/login", { replace: true });
     }
   };
+  const userName = user?.name || user?.email?.split('@')[0] || 'Admin';
+  const userRole = user?.role || 'admin';
+  const displayRole = userRole.replace(/_/g, ' ').replace(/-/g, ' ');
+  const initials = getUserInitials(user?.name, user?.email);
+
   return (
     <Dropdown
-      label={<ProfileLabel sticky={sticky} />}
+      label={<ProfileLabel sticky={sticky} user={user} />}
       classMenuItems="w-[220px] top-[58px]  "
     >
       <div className="flex items-center px-4 py-3 border-b border-gray-10 mb-3">
         <div className="flex-none ltr:mr-[10px] rtl:ml-[10px]">
-          <div className="h-[46px] w-[46px] rounded-full">
-            <img
-              src={UserAvatar}
-              alt=""
-              className="block w-full h-full object-cover rounded-full"
-            />
+          <div className="h-[46px] w-[46px] rounded-full flex items-center justify-center text-white font-semibold text-lg bg-indigo-600 dark:bg-indigo-500">
+            {initials}
           </div>
         </div>
         <div className="flex-1 text-gray-700 dark:text-white text-sm font-semibold  ">
-          <span className=" truncate w-full block">Faruk Ahamed</span>
+          <span className=" truncate w-full block">{userName}</span>
           <span className="block font-light text-xs   capitalize">
-            supper admin
+            {displayRole}
           </span>
         </div>
       </div>

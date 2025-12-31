@@ -49,6 +49,22 @@ export const utilsApi = apiSlice.injectEndpoints({
       invalidatesTags: ['Utils'],
     }),
 
+    // Get Investment Option Status
+    getInvestmentOption: builder.query({
+      query: () => '/utils/investmentOption',
+      providesTags: ['Utils'],
+    }),
+
+    // Update Investment Option Status
+    updateInvestmentOption: builder.mutation({
+      query: (data) => ({
+        url: '/utils/admin/investmentOption',
+        method: 'PUT',
+        body: data,
+      }),
+      invalidatesTags: ['Utils'],
+    }),
+
     // Get Policy by Type
     getPolicyByType: builder.query({
       query: (type) => `/utils/policies/${type}`,
@@ -92,6 +108,8 @@ export const {
   useUploadImageMutation,
   useGetInvestmentSettingsQuery,
   useCreateInvestmentSettingsMutation,
+  useGetInvestmentOptionQuery,
+  useUpdateInvestmentOptionMutation,
   useGetPolicyByTypeQuery,
   useGetAllPoliciesQuery,
   useCreateOrUpdatePolicyMutation,

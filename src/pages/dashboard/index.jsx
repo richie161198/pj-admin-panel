@@ -9,7 +9,7 @@ import { useGetAllOrdersQuery, useGetTotalRevenueQuery } from "@/store/api/order
 import { useGetAllCategoriesQuery } from "@/store/api/product/productApi";
 import LoadingIcon from "@/components/LoadingIcon";
 import { useNavigate } from "react-router-dom";
-// import Earnings from "@/components/partials/widget/chart/Earnings";
+import Earnings from "@/components/partials/widget/chart/Earnings";
 import RecentOrderTable from "@/components/partials/Table/order-table";
 import { useGetAllTicketsQuery } from '@/store/api/ticket/ticketApi';
 
@@ -372,9 +372,9 @@ const Dashboard = () => {
               ))}
           </ul>
         </Card>
-        {/* <Card title="Total Earning">
+        <Card title="Total Earning">
           <Earnings />
-        </Card> */}
+        </Card>
       </div>
       {/* end grid */}
       <div>

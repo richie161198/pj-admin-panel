@@ -190,6 +190,16 @@ export const orderApi = apiSlice.injectEndpoints({
       query: () => '/order/admin/totalInvestmentOrders',
       providesTags: ['Investment'],
     }),
+
+    // Update Order Item HUIDs
+    updateOrderItemHUIDs: builder.mutation({
+      query: (data) => ({
+        url: '/order/admin/updateItemHuids',
+        method: 'POST',
+        body: data,
+      }),
+      invalidatesTags: ['Order'],
+    }),
   }),
 });
 
@@ -214,4 +224,5 @@ export const {
   useGetInvestmentOrdersByMonthQuery,
   useGetTotalRevenueQuery,
   useGetTotalInvestmentOrdersQuery,
+  useUpdateOrderItemHUIDsMutation,
 } = orderApi;

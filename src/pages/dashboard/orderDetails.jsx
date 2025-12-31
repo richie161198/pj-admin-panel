@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useGetAllProductOrdersAdminQuery } from "@/store/api/order/orderApi";
+import { useGetAllProductOrdersAdminQuery, useUpdateOrderItemHUIDsMutation } from "@/store/api/order/orderApi";
 import { toast } from "react-toastify";
 import { getToken } from "@/utils/auth";
 import Card from "@/components/ui/Card";
@@ -9,6 +9,8 @@ import Badge from "@/components/ui/Badge";
 import Icon from "@/components/ui/Icon";
 import LoadingIcon from "@/components/LoadingIcon";
 import Button from "@/components/ui/Button";
+import Modal from "@/components/ui/Modal";
+import Textinput from "@/components/ui/Textinput";
 
 const currency = (n) =>
   new Intl.NumberFormat("en-IN", {
@@ -18,14 +20,19 @@ const currency = (n) =>
 
 const OrderDetails = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
+    const navigate = useNavigate();
   const [invoiceData, setInvoiceData] = useState(null);
   const [trackingData, setTrackingData] = useState(null);
   const [isLoadingInvoice, setIsLoadingInvoice] = useState(false);
   const [isLoadingTracking, setIsLoadingTracking] = useState(false);
+  const [showHUIDModal, setShowHUIDModal] = useState(false);
+  const [selectedItemIndex, setSelectedItemIndex] = useState(null);
+  const [huids, setHuids] = useState([]);
+  
+  const [updateOrderItemHUIDs, { isLoading: isUpdatingHUIDs }] = useUpdateOrderItemHUIDsMutation();
 
   // Fetch all orders to find the specific one
-  const { data: ordersResponse, isLoading, error } = useGetAllProductOrdersAdminQuery({
+  const { data: ordersResponse, isLoading, error, refetch } = useGetAllProductOrdersAdminQuery({
     page: 1,
     limit: 1000, // Get all orders to find the specific one
   });
@@ -244,8 +251,9 @@ const OrderDetails = () => {
               {order.items?.map((item, index) => (
                 <div
                   key={index}
-                  className="flex items-center justify-between p-5 hover:bg-gray-50 dark:hover:bg-slate-800/40 transition-colors"
+                  className="p-5 hover:bg-gray-50 dark:hover:bg-slate-800/40 transition-colors"
                 >
+                  <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-4">
                     <img
                       src={item.productDataid?.images?.[0] || '/placeholder-product.jpg'}
@@ -267,6 +275,45 @@ const OrderDetails = () => {
                     </div>
                     <div className="text-xs text-gray-500">Qty: {item.quantity || 1}</div>
                   </div>
+                  </div>
+                  
+                  {/* HUID Section - Only show for CONFIRMED orders */}
+                  {order.status === 'CONFIRMED' && (
+                    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          HUID (Hallmark Unique ID)
+                        </div>
+                        <Button
+                          onClick={() => {
+                            setSelectedItemIndex(index);
+                            setHuids(item.huids && item.huids.length > 0 
+                              ? [...item.huids] 
+                              : Array(item.quantity || 1).fill(''));
+                            setShowHUIDModal(true);
+                          }}
+                          className="btn btn-sm btn-outline-primary"
+                          size="sm"
+                        >
+                          <Icon icon="ph:pencil" className="mr-1" />
+                          {item.huids && item.huids.length > 0 ? 'Edit' : 'Add'} HUID
+                        </Button>
+                      </div>
+                      {item.huids && item.huids.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {item.huids.map((huid, huidIndex) => (
+                            <Badge key={huidIndex} className="bg-blue-100 text-blue-800 border-0">
+                              {huid}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-xs text-gray-500 italic">
+                          No HUIDs added yet
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -364,12 +411,12 @@ const OrderDetails = () => {
 
           <Card title="Order Information">
             <div className="space-y-3">
-              <div className="flex justify-between">
+              {/* <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Invoice No.</span>
                 <span className="text-sm font-medium">
                   {isLoadingInvoice ? 'Loading...' : (invoiceData?.invoiceNumber || 'N/A')}
                 </span>
-              </div>
+              </div> */}
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Created</span>
                 <span className="text-sm font-medium">
@@ -450,6 +497,103 @@ const OrderDetails = () => {
           )}
         </Card>
       )}
+
+      {/* HUID Management Modal */}
+      <Modal
+        title="Manage HUIDs"
+        label="huid-modal"
+        activeModal={showHUIDModal}
+        onClose={() => {
+          setShowHUIDModal(false);
+          setSelectedItemIndex(null);
+          setHuids([]);
+        }}
+      >
+        {selectedItemIndex !== null && order.items[selectedItemIndex] && (
+          <div className="space-y-4">
+            <div className="bg-gray-50 dark:bg-slate-700 p-3 rounded-lg">
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                {order.items[selectedItemIndex].productDataid?.name || 'Product'}
+              </p>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                Quantity: {order.items[selectedItemIndex].quantity || 1}
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                Enter HUIDs (one per quantity):
+              </label>
+              {huids.map((huid, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600 dark:text-gray-400 w-8">
+                    #{index + 1}:
+                  </span>
+                  <Textinput
+                    type="text"
+                    value={huid}
+                    onChange={(e) => {
+                      const newHuids = [...huids];
+                      newHuids[index] = e.target.value.toUpperCase().trim();
+                      setHuids(newHuids);
+                    }}
+                    placeholder={`HUID ${index + 1}`}
+                    className="flex-1"
+                    maxLength={16}
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-4 border-t">
+              <Button
+                onClick={() => {
+                  setShowHUIDModal(false);
+                  setSelectedItemIndex(null);
+                  setHuids([]);
+                }}
+                className="btn btn-outline-secondary"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  try {
+                    await updateOrderItemHUIDs({
+                      orderId: order._id,
+                      itemIndex: selectedItemIndex,
+                      huids: huids,
+                    }).unwrap();
+                    toast.success('HUIDs updated successfully');
+                    setShowHUIDModal(false);
+                    setSelectedItemIndex(null);
+                    setHuids([]);
+                    // Refetch orders to get updated data
+                    refetch();
+                  } catch (error) {
+                    console.error('Failed to update HUIDs:', error);
+                    toast.error(error?.data?.error || 'Failed to update HUIDs');
+                  }
+                }}
+                disabled={isUpdatingHUIDs}
+                className="btn btn-primary"
+              >
+                {isUpdatingHUIDs ? (
+                  <>
+                    <LoadingIcon />
+                    <span className="ml-2">Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Icon icon="ph:floppy-disk" className="mr-2" />
+                    Save HUIDs
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

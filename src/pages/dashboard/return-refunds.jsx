@@ -5,6 +5,7 @@ import {
   useAcceptReturnRefundRequestMutation,
   useRejectReturnRefundRequestMutation,
 } from '@/store/api/order/orderApi';
+import { useCreateReturnShipmentMutation } from '@/store/api/shipment/shipmentApi';
 import Button from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
 import { toast } from 'react-toastify';
@@ -40,6 +41,7 @@ const ReturnRefunds = () => {
   const { data: requestsResponse, isLoading, error, refetch } = useGetAllReturnRefundRequestsAdminQuery(queryParams);
   const [acceptRequest] = useAcceptReturnRefundRequestMutation();
   const [rejectRequest] = useRejectReturnRefundRequestMutation();
+  const [createReturnShipment, { isLoading: isCreatingReturnShipment }] = useCreateReturnShipmentMutation();
 
   // Extract data from API response
   const returnRequests = requestsResponse?.data?.returnRequests || [];
@@ -47,13 +49,37 @@ const ReturnRefunds = () => {
   const summary = requestsResponse?.data?.summary || {};
   const breakdown = requestsResponse?.data?.breakdown || {};
 
-  const handleAccept = async (requestId) => {
+  const handleAccept = async (request) => {
+    const requestId = typeof request === 'string' ? request : request._id;
+    const orderCode = typeof request === 'object' ? request.orderId?.orderCode : null;
+    const requestType = typeof request === 'object' ? request.requestType : null;
+    const reason = typeof request === 'object' ? request.reason || request.items?.[0]?.reason : null;
+
     try {
+      // First, accept the return/refund request
       await acceptRequest({ requestId }).unwrap();
-      toast.success('Return/Refund request approved successfully');
+      
+      // If it's a return request (not just refund), create return shipment in BVC
+      if (requestType === 'return' && orderCode) {
+        try {
+          await createReturnShipment({
+            orderCode: orderCode,
+            reason: reason || 'Return approved by admin',
+          }).unwrap();
+          toast.success('Return/Refund request approved and return shipment created successfully');
+        } catch (shipmentError) {
+          // If shipment creation fails, still show success for the approval
+          console.error('Failed to create return shipment:', shipmentError);
+          toast.warning('Return/Refund request approved, but return shipment creation failed. Please create manually.');
+        }
+      } else {
+        toast.success('Return/Refund request approved successfully');
+      }
+      
       refetch();
     } catch (error) {
-      toast.error(error?.data?.error || 'Failed to approve request');
+      console.error('Failed to approve request:', error);
+      toast.error(error?.data?.error || error?.data?.message || 'Failed to approve request');
     }
   };
 
@@ -386,12 +412,22 @@ const ReturnRefunds = () => {
                       {request.status === 'requested' && (
                         <div className="flex space-x-2">
                           <Button
-                            onClick={() => handleAccept(request._id)}
+                            onClick={() => handleAccept(request)}
+                            disabled={isCreatingReturnShipment}
                             className="btn btn-sm btn-success"
                             size="sm"
                           >
-                            <Icon icon="heroicons:check" className="mr-1" />
-                            Accept
+                            {isCreatingReturnShipment ? (
+                              <>
+                                <LoadingIcon />
+                                <span className="ml-1">Processing...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Icon icon="heroicons:check" className="mr-1" />
+                                Accept
+                              </>
+                            )}
                           </Button>
                           <Button
                             onClick={() => handleRejectClick(request)}

@@ -2,6 +2,7 @@ import React, { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import PermissionRoute from "@/components/PermissionRoute";
 import "@/utils/testAuth"; // Import test utility for debugging
 
 // home pages  & dashboard
@@ -33,6 +34,8 @@ const CancellationPolicy = lazy(() => import("./pages/dashboard/cancellation-pol
 const Withdrawpolicy = lazy(() => import("./pages/dashboard/withdrawpolicy"));
 const Refundpolicy = lazy(() => import("./pages/dashboard/refundpolicy"));
 const Investmentsettings = lazy(() => import("./pages/dashboard/investment-settings"));
+const AutopaySubscriptions = lazy(() => import("./pages/dashboard/autopay-subscriptions"));
+const ShipmentSettings = lazy(() => import("./pages/dashboard/shipment-settings"));
 const Maintenance = lazy(() => import("./pages/dashboard/maintenance"));
 const ChatPage = lazy(() => import("./pages/dashboard/chat"));
 const SupportTickets = lazy(() => import("./pages/dashboard/support-tickets"));
@@ -125,9 +128,9 @@ function App() {
 
         <Route path="/*" element={<Layout />}>
           <Route path="dashboard" element={
-            <ProtectedRoute>
+            <PermissionRoute requiredPermission="dashboard">
               <Dashboard />
-            </ProtectedRoute>
+            </PermissionRoute>
           } />
           <Route path="ecommerce" element={
             <ProtectedRoute>
@@ -135,39 +138,39 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="orders" element={
-            <ProtectedRoute>
+            <PermissionRoute requiredPermission="orders">
               <Orders />
-            </ProtectedRoute>
+            </PermissionRoute>
           } />
           <Route path="return-refunds" element={
-            <ProtectedRoute>
+            <PermissionRoute requiredPermission="return-refunds">
               <ReturnRefunds />
-            </ProtectedRoute>
+            </PermissionRoute>
           } />
           <Route path="investment-orders" element={
-            <ProtectedRoute>
+            <PermissionRoute requiredPermission="investment-orders">
               <InvestmentOrders />
-            </ProtectedRoute>
+            </PermissionRoute>
           } />
           <Route path="investment-invoices" element={
-            <ProtectedRoute>
+            <PermissionRoute requiredPermission="investment-invoices">
               <InvestmentInvoices />
-            </ProtectedRoute>
+            </PermissionRoute>
           } />
           <Route path="investment-orders/:id" element={
-            <ProtectedRoute>
+            <PermissionRoute requiredPermission="investment-orders">
               <InvestmentOrderDetails />
-            </ProtectedRoute>
+            </PermissionRoute>
           } />
           <Route path="orders/:id" element={
-            <ProtectedRoute>
+            <PermissionRoute requiredPermission="orders">
               <OrderDetails />
-            </ProtectedRoute>
+            </PermissionRoute>
           } />
           <Route path="invoices" element={
-            <ProtectedRoute>
+            <PermissionRoute requiredPermission="invoices">
               <Invoices />
-            </ProtectedRoute>
+            </PermissionRoute>
           } />
           <Route path="invoice/:type/:id" element={
             <ProtectedRoute>
@@ -175,49 +178,49 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="products" element={
-            <ProtectedRoute>
+            <PermissionRoute requiredPermission="products">
               <Products />
-            </ProtectedRoute>
+            </PermissionRoute>
           } />
           <Route path="products/add" element={
-            <ProtectedRoute>
+            <PermissionRoute requiredPermission="products">
               <ProductAdd />
-            </ProtectedRoute>
+            </PermissionRoute>
           } />
           <Route path="products/:id/edit" element={
-            <ProtectedRoute>
+            <PermissionRoute requiredPermission="products">
               <ProductAdd />
-            </ProtectedRoute>
+            </PermissionRoute>
           } />
           <Route path="products/:id" element={
-            <ProtectedRoute>
+            <PermissionRoute requiredPermission="products">
               <ProductDetails />
-            </ProtectedRoute>
+            </PermissionRoute>
           } />
           <Route path="categories" element={
-            <ProtectedRoute>
+            <PermissionRoute requiredPermission="categories">
               <Categories />
-            </ProtectedRoute>
+            </PermissionRoute>
           } />
           <Route path="banners" element={
-            <ProtectedRoute>
+            <PermissionRoute requiredPermission="banners">
               <Banners />
-            </ProtectedRoute>
+            </PermissionRoute>
           } />
           <Route path="categories/:id" element={
-            <ProtectedRoute>
+            <PermissionRoute requiredPermission="categories">
               <CategoryDetails />
-            </ProtectedRoute>
+            </PermissionRoute>
           } />
           <Route path="customers" element={
-            <ProtectedRoute>
+            <PermissionRoute requiredPermission="customers">
               <Customers />
-            </ProtectedRoute>
+            </PermissionRoute>
           } />
           <Route path="customers/:id" element={
-            <ProtectedRoute>
+            <PermissionRoute requiredPermission="customers">
               <CustomerDetails />
-            </ProtectedRoute>
+            </PermissionRoute>
           } />
           {/* <Route path="support-page" element={<ChatPage />} /> */}
           <Route path="chat" element={
@@ -226,19 +229,19 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="support-tickets" element={
-            <ProtectedRoute>
+            <PermissionRoute requiredPermission="support-tickets">
               <SupportTickets />
-            </ProtectedRoute>
+            </PermissionRoute>
           } />
           <Route path="referred-users" element={
-            <ProtectedRoute>
+            <PermissionRoute requiredPermission="referred-users">
               <ReferredUsers />
-            </ProtectedRoute>
+            </PermissionRoute>
           } />
           <Route path="admin-profile" element={
-            <ProtectedRoute>
+            <PermissionRoute requiredPermission="admin-profile">
               <AdminprofilePage />
-            </ProtectedRoute>
+            </PermissionRoute>
           } />
           <Route path="privacy-policy" element={
             <ProtectedRoute>
@@ -282,19 +285,29 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="investment-settings" element={
-            <ProtectedRoute>
+            <PermissionRoute requiredPermission="investment-settings">
               <Investmentsettings />
-            </ProtectedRoute>
+            </PermissionRoute>
+          } />
+          <Route path="autopay-subscriptions" element={
+            <PermissionRoute requiredPermission="autopay-subscriptions">
+              <AutopaySubscriptions />
+            </PermissionRoute>
+          } />
+          <Route path="shipment-settings" element={
+            <PermissionRoute requiredPermission="shipment-settings">
+              <ShipmentSettings />
+            </PermissionRoute>
           } />
           <Route path="maintenance" element={
-            <ProtectedRoute>
+            <PermissionRoute requiredPermission="maintenance">
               <Maintenance />
-            </ProtectedRoute>
+            </PermissionRoute>
           } />
           <Route path="admin-list" element={
-            <ProtectedRoute>
+            <PermissionRoute requiredPermission="admin-list">
               <AdminList />
-            </ProtectedRoute>
+            </PermissionRoute>
           } />
           <Route path="admin-details/:id" element={
             <ProtectedRoute>
@@ -351,7 +364,11 @@ function App() {
           <Route path="faq" element={<FaqPage />} />
           <Route path="profile" element={<Profile />} />
           <Route path="icons" element={<IconPage />} />
-          <Route path="notifications" element={<NotificationPage />} />
+          <Route path="notifications" element={
+            <PermissionRoute requiredPermission="notifications">
+              <NotificationPage />
+            </PermissionRoute>
+          } />
           <Route path="*" element={<Navigate to="/404" />} />
         </Route>
         <Route

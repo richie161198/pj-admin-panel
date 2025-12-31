@@ -36,6 +36,12 @@ export const menuItems = [
   },
   
   {
+    title: "Banners",
+    isHide: true,
+    icon: "ph:image-square",
+    link: "banners",
+  },
+  {
     title: "Orders",
     isHide: true,
     icon: "ph:shopping-cart",
@@ -62,6 +68,11 @@ export const menuItems = [
     isHide: true,
     icon: "ph:chart-line-up",
     link: "investment-orders",
+  }, {
+    title: "Autopay Subscriptions",
+    isHide: true,
+    icon: "ph:repeat",
+    link: "autopay-subscriptions",
   },
   {
     title: "Investment Invoices",
@@ -69,13 +80,22 @@ export const menuItems = [
     icon: "ph:receipt",
     link: "investment-invoices",
   },
+    {
+    isHeadr: true,
+    title: "Settings",
+  },
   {
     title: "Investment Settings",
     isHide: true,
     icon: "ph:gear-six",
     link: "investment-settings",
   },
-
+  {
+    title: "Shipment Settings",
+    isHide: true,
+    icon: "ph:truck",
+    link: "shipment-settings",
+  },
 
     {
     isHeadr: true,
@@ -128,12 +148,6 @@ export const menuItems = [
     isHide: true,
     icon: "ph:gear",
     link: "maintenance",
-  },
-  {
-    title: "Banners",
-    isHide: true,
-    icon: "ph:image-square",
-    link: "banners",
   },
     {
     isHeadr: true,
