@@ -73,7 +73,6 @@ const LoginForm = () => {
         label="email"
         placeholder="email"
         prepend="@"
-        defaultValue="Chandran@preciousjewels.com"
         register={register}
         error={errors.email}
         merged
@@ -85,7 +84,6 @@ const LoginForm = () => {
         type="password"
         placeholder="password"
         prepend={<Icon icon="ph:lock-simple" />}
-        defaultValue="Test@1234"
         register={register}
         error={errors.password}
         merged
