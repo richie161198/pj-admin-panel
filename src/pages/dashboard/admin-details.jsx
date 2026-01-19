@@ -98,8 +98,8 @@ const AdminDetails = () => {
   const handleUpdateAdmin = async (e) => {
     e.preventDefault();
     
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      toast.error('Passwords do not match');
+    if (formData.permissions.length === 0) {
+      toast.error('Please select at least one page access');
       return;
     }
 
@@ -156,15 +156,41 @@ const AdminDetails = () => {
     }
   };
 
-  // Available permissions
-  const availablePermissions = [
-    'users:read', 'users:write', 'users:delete',
-    'products:read', 'products:write', 'products:delete',
-    'orders:read', 'orders:write', 'orders:delete',
-    'categories:read', 'categories:write', 'categories:delete',
-    'analytics:read', 'settings:read', 'settings:write',
-    'tickets:read', 'tickets:write', 'tickets:delete',
-    'admins:read', 'admins:write', 'admins:delete'
+  // Page-based permissions (same as admin creation form)
+  const pagePermissions = [
+    // Ecommerce section
+    { id: 'dashboard', label: 'Dashboard', icon: 'ph:house' },
+    { id: 'customers', label: 'Customers', icon: 'ph:users' },
+    { id: 'products', label: 'Products', icon: 'ph:package' },
+    { id: 'categories', label: 'Categories', icon: 'ph:folders' },
+    { id: 'banners', label: 'Banners', icon: 'ph:image-square' },
+    { id: 'orders', label: 'Orders', icon: 'ph:shopping-cart' },
+    { id: 'invoices', label: 'Invoices', icon: 'ph:receipt' },
+    { id: 'return-refunds', label: 'Return & Refunds', icon: 'ph:arrow-counter-clockwise' },
+    // Investment section
+    { id: 'investment-orders', label: 'Investment Orders', icon: 'ph:chart-line-up' },
+    { id: 'autopay-subscriptions', label: 'Autopay Subscriptions', icon: 'ph:repeat' },
+    { id: 'investment-invoices', label: 'Investment Invoices', icon: 'ph:receipt' },
+    // Settings section
+    { id: 'investment-settings', label: 'Investment Settings', icon: 'ph:gear-six' },
+    { id: 'shipment-settings', label: 'Shipment Settings', icon: 'ph:truck' },
+    // Support section
+    { id: 'appointments', label: 'Appointments', icon: 'ph:calendar-check' },
+    { id: 'support-tickets', label: 'Support Tickets', icon: 'ph:ticket' },
+    { id: 'notifications', label: 'Notifications', icon: 'ph:bell' },
+    { id: 'referred-users', label: 'Referred Users', icon: 'ph:users' },
+    // Admin settings section
+    { id: 'admin-profile', label: 'Admin Profile', icon: 'ph:user-circle' },
+    { id: 'admin-list', label: 'Admin List', icon: 'ph:users-three' },
+    { id: 'maintenance', label: 'Maintenance', icon: 'ph:gear' },
+    // Policy settings section
+    { id: 'privacy-policy', label: 'Privacy Policy', icon: 'ph:lock' },
+    { id: 'return-policy', label: 'Return Policy', icon: 'ph:arrow-counter-clockwise' },
+    { id: 'shipping-policy', label: 'Shipping Policy', icon: 'ph:truck' },
+    { id: 'cancellation-policy', label: 'Cancellation Policy', icon: 'ph:x-circle' },
+    { id: 'grievance-policy', label: 'Grievance Policy', icon: 'ph:warning-circle' },
+    { id: 'digigold-redemption-policy', label: 'Digital Gold & Redemption Policy', icon: 'ph:coins' },
+    { id: 'terms-and-conditions', label: 'Terms and Conditions', icon: 'ph:file-text' }
   ];
 
   if (isLoading) {
@@ -414,40 +440,59 @@ const AdminDetails = () => {
           </Card>
 
           {/* Permissions */}
-          <Card title="Permissions" className="mt-6">
+          <Card title="Page Access" className="mt-6">
             {isEditing ? (
               <div className="space-y-4">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Select the permissions this admin should have:
-                </p>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {availablePermissions.map((permission) => (
-                    <label key={permission} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={formData.permissions.includes(permission)}
-                        onChange={() => handlePermissionChange(permission)}
-                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                      />
-                      <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                        {permission}
-                      </span>
-                    </label>
-                  ))}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                    Page Access *
+                  </label>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                    Select which pages this admin can access
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 border border-gray-300 dark:border-gray-600 rounded-md p-4 bg-gray-50 dark:bg-gray-800">
+                    {pagePermissions.map((page) => (
+                      <label 
+                        key={page.id} 
+                        className="flex items-center p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formData.permissions.includes(page.id)}
+                          onChange={() => handlePermissionChange(page.id)}
+                          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                        />
+                        <Icon icon={page.icon} className="ml-3 text-lg text-gray-600 dark:text-gray-400" />
+                        <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {page.label}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  {formData.permissions.length === 0 && (
+                    <p className="text-xs text-red-500 dark:text-red-400 mt-2">
+                      Please select at least one page access
+                    </p>
+                  )}
                 </div>
               </div>
             ) : (
               <div className="space-y-2">
                 {admin.permissions && admin.permissions.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {admin.permissions.map((permission) => (
-                      <span
-                        key={permission}
-                        className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                      >
-                        {permission}
-                      </span>
-                    ))}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {pagePermissions
+                      .filter(page => admin.permissions.includes(page.id))
+                      .map((page) => (
+                        <div
+                          key={page.id}
+                          className="flex items-center p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800"
+                        >
+                          <Icon icon={page.icon} className="text-lg text-gray-600 dark:text-gray-400" />
+                          <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            {page.label}
+                          </span>
+                        </div>
+                      ))}
                   </div>
                 ) : (
                   <p className="text-sm text-gray-500 dark:text-gray-400">No permissions assigned</p>

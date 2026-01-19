@@ -56,7 +56,7 @@ const OrderDetails = () => {
       const token = getToken();
       // Query all invoices and find the one matching this order
       const response = await fetch(
-        `http://35.154.139.118/api/v0/invoices?limit=1000`,
+        `http://localhost:4000/api/v0/invoices?limit=1000`,
         {
           method: 'GET',
           headers: {
@@ -96,7 +96,7 @@ const OrderDetails = () => {
     try {
       const token = getToken();
       const response = await fetch(
-        `http://35.154.139.118/api/v0/shipments/bvc/track/order`,
+        `http://localhost:4000/api/v0/shipments/bvc/track/order`,
         {
           method: 'POST',
           headers: {
@@ -181,6 +181,60 @@ const OrderDetails = () => {
     );
   };
 
+  // Check if address is in Tamil Nadu
+  const isTamilNadu = (invoice) => {
+    if (!invoice) return false;
+    const shippingState = invoice.shippingDetails?.shippingAddress?.state?.toUpperCase() || '';
+    const billingState = invoice.customerDetails?.address?.state?.toUpperCase() || '';
+    const state = shippingState || billingState;
+    return state.includes('TAMIL NADU') || 
+           state.includes('TAMILNADU') || 
+           state.includes(' TN ') || 
+           state.endsWith(' TN');
+  };
+
+  // Calculate GST breakdown
+  const getGSTBreakdown = (invoice) => {
+    if (!invoice || !invoice.pricing) {
+      return { type: 'N/A', amount: 0, cgst: 0, sgst: 0, igst: 0, roundedGST: 0, roundOff: 0, isTamilNadu: false };
+    }
+    
+    const totalGST = invoice.pricing?.totalGST || 0;
+    if (totalGST === 0) {
+      return { type: 'N/A', amount: 0, cgst: 0, sgst: 0, igst: 0, roundedGST: 0, roundOff: 0, isTamilNadu: false };
+    }
+    
+    const isTN = isTamilNadu(invoice);
+    // Use actual GST value without rounding
+    const actualGST = totalGST;
+    
+    if (isTN) {
+      const cgst = actualGST / 2;
+      const sgst = actualGST / 2;
+      return { 
+        type: 'CGST + SGST', 
+        amount: actualGST, 
+        cgst: cgst, 
+        sgst: sgst, 
+        igst: 0,
+        roundedGST: actualGST,
+        roundOff: 0,
+        isTamilNadu: true
+      };
+    } else {
+      return { 
+        type: 'IGST', 
+        amount: actualGST, 
+        cgst: 0, 
+        sgst: 0, 
+        igst: actualGST,
+        roundedGST: actualGST,
+        roundOff: 0,
+        isTamilNadu: false
+      };
+    }
+  };
+
   // Download invoice by order code
   const handleDownloadInvoice = async () => {
     if (!order?.orderCode) {
@@ -201,7 +255,7 @@ const OrderDetails = () => {
       }
 
       const response = await fetch(
-        `http://35.154.139.118/api/v0/invoices/order/${order.orderCode}/download`,
+        `http://localhost:4000/api/v0/invoices/order/${order.orderCode}/download`,
         {
           method: 'GET',
           headers: headers,
@@ -248,7 +302,23 @@ const OrderDetails = () => {
         <div className="xl:col-span-2 space-y-6">
           <Card title="Products ordered" bodyClass="p-0">
             <div className="divide-y">
-              {order.items?.map((item, index) => (
+              {order.items?.map((item, index) => {
+                // Find matching invoice product to get the actual price at order time
+                const invoiceProduct = invoiceData?.products?.find(invProd => {
+                  const orderProductId = item.productDataid?._id || item.productDataid;
+                  const invProductId = invProd.productId?._id || invProd.productId;
+                  return (
+                    (typeof orderProductId === 'string' && orderProductId === invProductId?.toString()) ||
+                    (typeof invProductId === 'string' && invProductId === orderProductId?.toString()) ||
+                    (orderProductId?.toString() === invProductId?.toString())
+                  );
+                });
+
+                // Use invoice product price (accurate at order time) if available, otherwise fallback to order item price
+                const displayPrice = invoiceProduct?.finalPrice || invoiceProduct?.totalPrice || item.price || 0;
+                const unitPrice = invoiceProduct?.unitPrice || (item.price && item.quantity ? item.price / item.quantity : 0);
+
+                return (
                 <div
                   key={index}
                   className="p-5 hover:bg-gray-50 dark:hover:bg-slate-800/40 transition-colors"
@@ -257,23 +327,33 @@ const OrderDetails = () => {
                   <div className="flex items-center gap-4">
                     <img
                       src={item.productDataid?.images?.[0] || '/placeholder-product.jpg'}
-                      alt={item.productDataid?.name || 'Product'}
+                      alt={item.productDataid?.name || invoiceProduct?.name || 'Product'}
                       className="w-14 h-14 rounded-md object-cover ring-1 ring-gray-200"
                     />
                     <div>
                       <div className="font-medium text-gray-900 dark:text-gray-100">
-                        {item.productDataid?.name || 'Product'}
+                        {item.productDataid?.name || invoiceProduct?.name || 'Product'}
                       </div>
                       <div className="text-xs text-gray-500">
-                        Brand: {item.productDataid?.brand || 'N/A'}
+                        Brand: {item.productDataid?.brand || invoiceProduct?.brand || 'N/A'}
                       </div>
+                      {invoiceProduct && (
+                        <div className="text-xs text-gray-400 mt-1">
+                          Unit Price: {currency(unitPrice)}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="font-semibold text-gray-900 dark:text-gray-100">
-                      {currency(item.price || 0)}
+                      {currency(displayPrice)}
                     </div>
-                    <div className="text-xs text-gray-500">Qty: {item.quantity || 1}</div>
+                    <div className="text-xs text-gray-500">Qty: {item.quantity || invoiceProduct?.quantity || 1}</div>
+                    {invoiceProduct && invoiceProduct.quantity > 1 && (
+                      <div className="text-xs text-gray-400">
+                        ({currency(unitPrice)} × {invoiceProduct.quantity})
+                      </div>
+                    )}
                   </div>
                   </div>
                   
@@ -315,7 +395,8 @@ const OrderDetails = () => {
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </Card>
 
@@ -329,26 +410,125 @@ const OrderDetails = () => {
             bodyClass="p-0"
           >
             <div className="p-5 space-y-3">
+              {/* Subtotal */}
+              {/* <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-600 dark:text-gray-400">Subtotal</span>
+                <span className="font-medium text-gray-900 dark:text-white">
+                  {currency(invoiceData?.pricing?.subtotal || order.pricing?.subtotal || order.totalAmount || 0)}
+                </span>
+              </div> */}
+
+              {/* GST Value */}
+              {(() => {
+                const gstBreakdown = getGSTBreakdown(invoiceData || order);
+                const isTN = gstBreakdown.isTamilNadu;
+                const totalGST = gstBreakdown.roundedGST;
+
+                if (totalGST > 0) {
+                  return (
+                    <>
+                      {isTN ? (
+                        <>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-600 dark:text-gray-400">CGST (1.5%)</span>
+                            <span className="font-medium text-gray-900 dark:text-white">
+                              {currency(gstBreakdown.cgst)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-gray-600 dark:text-gray-400">SGST (1.5%)</span>
+                            <span className="font-medium text-gray-900 dark:text-white">
+                              {currency(gstBreakdown.sgst)}
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600 dark:text-gray-400">IGST (3%)</span>
+                          <span className="font-medium text-gray-900 dark:text-white">
+                            {currency(gstBreakdown.igst)}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600 dark:text-gray-400 font-medium">Total GST</span>
+                        <span className="font-medium text-gray-900 dark:text-white">
+                          {currency(totalGST)}
+                        </span>
+                      </div>
+                    </>
+                  );
+                }
+                return (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">GST</span>
+                    <span className="font-medium text-gray-900 dark:text-white">
+                      {currency(0)}
+                    </span>
+                  </div>
+                );
+              })()}
+
+              {/* Total (Grand Total from invoice/order) */}
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Subtotal</span>
-                <span className="font-medium">{currency(order.totalAmount || 0)}</span>
+                <span className="text-gray-600 dark:text-gray-400 font-medium">Total</span>
+                <span className="font-medium text-gray-900 dark:text-white">
+                  {currency(
+                    invoiceData?.pricing?.grandTotal || 
+                    order.pricing?.grandTotal || 
+                    order.totalAmount || 
+                    0
+                  )}
+                </span>
               </div>
+
+              {/* Shipping Charges */}
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Shipping</span>
-                <span className="font-medium">{currency(order.shippingCost || 0)}</span>
+                <span className="text-gray-600 dark:text-gray-400">Shipping Charges</span>
+                <span className="font-medium text-gray-900 dark:text-white">
+                  {currency(
+                    invoiceData?.shippingDetails?.shippingPrice || 
+                    invoiceData?.shippingDetails?.shippingAmount || 
+                    order.shippingDetails?.shippingPrice || 
+                    order.shippingDetails?.shippingAmount || 
+                    0
+                  )}
+                </span>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Tax</span>
-                <span className="font-medium">{currency(order.tax || 0)}</span>
-              </div>
+
+              {/* Total Amount (Total + Shipping, rounded up) */}
               <div className="border-t pt-3 flex items-center justify-between">
-                <span className="font-semibold">Total</span>
-                <span className="font-semibold">{currency(order.totalAmount || 0)}</span>
+                <span className="font-semibold text-gray-900 dark:text-white">Total Amount</span>
+                <span className="font-semibold text-gray-900 dark:text-white">
+                  {(() => {
+                    const grandTotal = invoiceData?.pricing?.grandTotal || order.pricing?.grandTotal || order.totalAmount || 0;
+                    const shippingCharges = invoiceData?.shippingDetails?.shippingPrice || 
+                                          invoiceData?.shippingDetails?.shippingAmount || 
+                                          order.shippingDetails?.shippingPrice || 
+                                          order.shippingDetails?.shippingAmount || 
+                                          0;
+                    const totalAmount = grandTotal + shippingCharges;
+                    const totalAmountCeil = Math.ceil(totalAmount);
+                    return currency(totalAmountCeil);
+                  })()}
+                </span>
               </div>
             </div>
             <div className="px-5 py-3 bg-gray-50 dark:bg-slate-800/40 rounded-b-xl flex items-center justify-between">
-              <span className="text-sm text-gray-600">Customer payment</span>
-              <span className="font-semibold">{currency(order.totalAmount || 0)}</span>
+              <span className="text-sm text-gray-600 dark:text-gray-400">Customer payment</span>
+              <span className="font-semibold text-gray-900 dark:text-white">
+                {(() => {
+                  const grandTotal = invoiceData?.pricing?.grandTotal || order.pricing?.grandTotal || order.totalAmount || 0;
+                  const shippingCharges = invoiceData?.shippingDetails?.shippingPrice || 
+                                        invoiceData?.shippingDetails?.shippingAmount || 
+                                        order.shippingDetails?.shippingPrice || 
+                                        order.shippingDetails?.shippingAmount || 
+                                        0;
+                  const totalAmount = grandTotal + shippingCharges;
+                  const totalAmountCeil = Math.ceil(totalAmount);
+                  return currency(totalAmountCeil);
+                })()}
+              </span>
             </div>
           </Card>
         </div>

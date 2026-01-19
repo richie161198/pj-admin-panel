@@ -43,6 +43,7 @@ const AdminList = lazy(() => import("./pages/dashboard/admin-list"));
 const AdminDetails = lazy(() => import("./pages/dashboard/admin-details"));
 const Banners = lazy(() => import("./pages/dashboard/banners"));
 const ReferredUsers = lazy(() => import("./pages/dashboard/referred-users"));
+const AppointmentsPage = lazy(() => import("./pages/dashboard/appointments"));
 const TokenDebug = lazy(() => import("./pages/debug/token-debug"));
 
 const Login = lazy(() => import("./pages/auth/login"));
@@ -233,11 +234,11 @@ function App() {
               <SupportTickets />
             </PermissionRoute>
           } />
-          <Route path="referred-users" element={
+          {/* <Route path="referred-users" element={
             <PermissionRoute requiredPermission="referred-users">
               <ReferredUsers />
             </PermissionRoute>
-          } />
+          } /> */}
           <Route path="admin-profile" element={
             <PermissionRoute requiredPermission="admin-profile">
               <AdminprofilePage />
@@ -367,6 +368,11 @@ function App() {
           <Route path="notifications" element={
             <PermissionRoute requiredPermission="notifications">
               <NotificationPage />
+            </PermissionRoute>
+          } />
+          <Route path="appointments" element={
+            <PermissionRoute requiredPermission="appointments">
+              <AppointmentsPage />
             </PermissionRoute>
           } />
           <Route path="*" element={<Navigate to="/404" />} />

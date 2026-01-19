@@ -114,17 +114,23 @@ export const menuItems = [
     link: "support-tickets",
   },
   {
+    title: "Appointments",
+    isHide: true,
+    icon: "ph:calendar-check",
+    link: "appointments",
+  },
+  {
     title: "Notifications",
     isHide: true,
     icon: "ph:bell",
     link: "notifications",
   },
-  {
-    title: "Referred Users",
-    isHide: true,
-    icon: "ph:users",
-    link: "referred-users",
-  },
+  // {
+  //   title: "Referred Users",
+  //   isHide: true,
+  //   icon: "ph:users",
+  //   link: "referred-users",
+  // },
 
    {
     isHeadr: true,

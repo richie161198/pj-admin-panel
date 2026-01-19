@@ -89,7 +89,7 @@ const Header = ({ className = "custom-class", title }) => {
             {/* <Language /> */}
             <SwitchDark />
             <Settings />
-            <Message />
+            {/* <Message /> */}
             {/* <Notification /> */}
             <Profile sticky={sticky} />
 

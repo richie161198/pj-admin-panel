@@ -372,9 +372,9 @@ const Dashboard = () => {
               ))}
           </ul>
         </Card>
-        <Card title="Total Earning">
+        {/* <Card title="Total Earning">
           <Earnings />
-        </Card>
+        </Card> */}
       </div>
       {/* end grid */}
       <div>

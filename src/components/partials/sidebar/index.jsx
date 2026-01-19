@@ -32,6 +32,7 @@ const Sidebar = () => {
     // Settings section
     'investment-settings': 'investment-settings',
     'shipment-settings': 'shipment-settings',
+    'appointments': 'appointments',
     // Support section
     'support-tickets': 'support-tickets',
     'notifications': 'notifications',

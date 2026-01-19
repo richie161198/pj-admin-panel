@@ -106,6 +106,8 @@ const Orders = () => {
         'Status': order.status || 'N/A',
         'Payment Status': order.paymentStatus || 'N/A',
         'Total Amount': order.totalAmount || 0,
+        'Shipping Charges': order.shippingDetails?.shippingPrice || order.shippingDetails?.shippingAmount || 0,
+        'Total Amount (Grand Total + Shipping)': Math.ceil((order.pricing?.grandTotal || order.totalAmount || 0) + (order.shippingDetails?.shippingPrice || order.shippingDetails?.shippingAmount || 0)),
         'Items Count': order.items?.length || 0,
         'Created At': order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A',
         'Updated At': order.updatedAt ? new Date(order.updatedAt).toLocaleDateString() : 'N/A'
@@ -340,6 +342,12 @@ const Orders = () => {
                   Total
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Shipping Charges
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Total Amount
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Date
                 </th>
                 {/* <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -390,7 +398,29 @@ const Orders = () => {
                   </td> */}
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900 dark:text-white">
-                      ₹{order.totalAmount?.toLocaleString() || 0}
+                      ₹{order.totalAmount?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || 0}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-600 dark:text-slate-400">
+                      ₹{(() => {
+                        const shippingCharges = order.shippingDetails?.shippingPrice || order.shippingDetails?.shippingAmount || 0;
+                        return shippingCharges.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                      })()}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                      {(() => {
+                        // Get grandTotal from pricing (invoice) or use totalAmount as fallback
+                        const grandTotal = order.pricing?.grandTotal || order.totalAmount || 0;
+                        // Get shipping charges from shippingDetails or order
+                        const shippingCharges = order.shippingDetails?.shippingPrice || order.shippingDetails?.shippingAmount || 0;
+                        // Calculate total and apply ceil
+                        const totalAmount = grandTotal + shippingCharges;
+                        const totalAmountCeil = Math.ceil(totalAmount);
+                        return `₹${totalAmountCeil.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                      })()}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">

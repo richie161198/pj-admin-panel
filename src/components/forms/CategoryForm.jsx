@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useCreateCategoryMutation, useUpdateProductMutation } from '@/store/api/product/productApi';
+import { useCreateCategoryMutation, useUpdateCategoryMutation } from '@/store/api/product/productApi';
+import { useUploadSingleImageMutation } from '@/store/api/image/imageApi';
 import Button from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
 import { toast } from 'react-toastify';
@@ -7,26 +8,27 @@ import { toast } from 'react-toastify';
 const CategoryForm = ({ category, onClose, isEdit = false }) => {
   const [formData, setFormData] = useState({
     name: '',
-    description: '',
     image: null,
-    isActive: true,
-    parentCategory: '',
-    sortOrder: 0
+    newTag: false
   });
 
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+
   const [createCategory, { isLoading: isCreating }] = useCreateCategoryMutation();
-  const [updateCategory, { isLoading: isUpdating }] = useUpdateProductMutation();
+  const [updateCategory, { isLoading: isUpdating }] = useUpdateCategoryMutation();
+  const [uploadImage, { isLoading: isUploading }] = useUploadSingleImageMutation();
 
   useEffect(() => {
     if (isEdit && category) {
       setFormData({
         name: category.name || '',
-        description: category.description || '',
         image: category.image || null,
-        isActive: category.isActive !== undefined ? category.isActive : true,
-        parentCategory: category.parentCategory || '',
-        sortOrder: category.sortOrder || 0
+        newTag: category.newTag || false
       });
+      if (category.image) {
+        setImagePreview(category.image);
+      }
     }
   }, [isEdit, category]);
 
@@ -40,19 +42,59 @@ const CategoryForm = ({ category, onClose, isEdit = false }) => {
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
-    setFormData(prev => ({
-      ...prev,
-      image: file
-    }));
+    if (!file) return;
+    
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select a valid image file');
+      return;
+    }
+    
+    setImageFile(file);
+    const url = URL.createObjectURL(file);
+    setImagePreview(url);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    if (!formData.name.trim()) {
+      toast.error('Category name is required');
+      return;
+    }
+
+    // Validate image is provided
+    if (!imageFile && !formData.image) {
+      toast.error('Category image is required');
+      return;
+    }
+
     try {
+      let imageUrl = formData.image;
+
+      // Upload image if a new file is selected
+      if (imageFile) {
+        const formDataUpload = new FormData();
+        formDataUpload.append('image', imageFile);
+        
+        try {
+          const uploadResponse = await uploadImage(formDataUpload).unwrap();
+          imageUrl = uploadResponse.data?.url || uploadResponse.url || uploadResponse;
+        } catch (uploadError) {
+          toast.error('Failed to upload image');
+          return;
+        }
+      }
+
+      // Ensure image URL exists
+      if (!imageUrl) {
+        toast.error('Category image is required');
+        return;
+      }
+
       const submitData = {
-        ...formData,
-        sortOrder: parseInt(formData.sortOrder)
+        name: formData.name.trim(),
+        image: imageUrl,
+        newTag: formData.newTag || false
       };
 
       if (isEdit) {
@@ -65,7 +107,7 @@ const CategoryForm = ({ category, onClose, isEdit = false }) => {
       
       onClose();
     } catch (error) {
-      toast.error(error.data?.message || 'Failed to save category');
+      toast.error(error.data?.message || error.message || 'Failed to save category');
     }
   };
 
@@ -87,7 +129,6 @@ const CategoryForm = ({ category, onClose, isEdit = false }) => {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Basic Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Category Name *
@@ -99,87 +140,49 @@ const CategoryForm = ({ category, onClose, isEdit = false }) => {
                   onChange={handleInputChange}
                   required
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Sort Order
-                </label>
-                <input
-                  type="number"
-                  name="sortOrder"
-                  value={formData.sortOrder}
-                  onChange={handleInputChange}
-                  min="0"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
-                />
-              </div>
-            </div>
-
-            {/* Description */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Description *
-              </label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                required
-                rows={4}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
+                placeholder="Enter category name"
               />
             </div>
 
             {/* Category Image */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Category Image
+                Category Image *
               </label>
               <input
                 type="file"
                 accept="image/*"
                 onChange={handleImageChange}
+                required={!isEdit || !formData.image}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
               />
-              {formData.image && (
+              {!imagePreview && !formData.image && (
+                <p className="mt-1 text-sm text-red-500 dark:text-red-400">
+                  Please upload a category image
+                </p>
+              )}
+              {(imagePreview || formData.image) && (
                 <div className="mt-4">
                   <img
-                    src={typeof formData.image === 'string' ? formData.image : URL.createObjectURL(formData.image)}
+                    src={imagePreview || formData.image}
                     alt="Category preview"
-                    className="w-32 h-32 object-cover rounded-lg"
+                    className="w-32 h-32 object-cover rounded-lg border border-gray-300 dark:border-gray-600"
                   />
                 </div>
               )}
             </div>
 
-            {/* Parent Category */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Parent Category (Optional)
-              </label>
-              <input
-                type="text"
-                name="parentCategory"
-                value={formData.parentCategory}
-                onChange={handleInputChange}
-                placeholder="Enter parent category name"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
-              />
-            </div>
-
-            {/* Status */}
+            {/* New Tag */}
             <div className="flex items-center">
               <input
                 type="checkbox"
-                name="isActive"
-                checked={formData.isActive}
+                name="newTag"
+                checked={formData.newTag}
                 onChange={handleInputChange}
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               />
               <label className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                Category is active
+                Mark as New Category
               </label>
             </div>
 
@@ -194,13 +197,13 @@ const CategoryForm = ({ category, onClose, isEdit = false }) => {
               </Button>
               <Button
                 type="submit"
-                disabled={isCreating || isUpdating}
+                disabled={isCreating || isUpdating || isUploading}
                 className="btn btn-primary"
               >
-                {isCreating || isUpdating ? (
+                {(isCreating || isUpdating || isUploading) ? (
                   <>
                     <Icon icon="ph:spinner" className="animate-spin mr-2" />
-                    {isEdit ? 'Updating...' : 'Creating...'}
+                    {isUploading ? 'Uploading...' : (isEdit ? 'Updating...' : 'Creating...')}
                   </>
                 ) : (
                   <>

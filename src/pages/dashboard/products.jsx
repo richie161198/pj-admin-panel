@@ -81,28 +81,73 @@ const Products = () => {
   const handleDownloadExcel = () => {
     try {
       // Prepare data for Excel export
-      const excelData = products.map((product, index) => ({
-        'S.No': index + 1,
-        'Product ID': product._id,
-        'Name': product.name || 'N/A',
-        'Brand': product.brand || 'N/A',
-        'SKU ID': product.skuId || 'N/A',
-        'Category': product.categories || 'N/A',
-        'Selling Price': product.sellingprice || 0,
-        'Stock': product.stock || 0,
-        'Status': product.active ? 'Active' : 'Inactive',
-        'Trending': product.trending ? 'Yes' : 'No',
-        'Popular': product.popular ? 'Yes' : 'No',
-        'Rating': product.rating?.value || 0,
-        'Rating Count': product.rating?.count || 0,
-        'Weight': product.subtotal?.weight || 'N/A',
-        'Total': product.total || 0,
-        'GST': product.gst || 0,
-        'Selected Carat': product.selectedCaret || 'N/A',
-        'Caret Options': product.caretOptions?.join(', ') || 'N/A',
-        'Created At': product.createdAt ? new Date(product.createdAt).toLocaleDateString() : 'N/A',
-        'Updated At': product.updatedAt ? new Date(product.updatedAt).toLocaleDateString() : 'N/A'
-      }));
+      const excelData = products.map((product, index) => {
+        // Format product details
+        let productDetailsText = 'N/A';
+        if (product.productDetails && product.productDetails.length > 0) {
+          productDetailsText = product.productDetails.map((detail, idx) => {
+            const attrs = detail.attributes || {};
+            const attrStr = Object.entries(attrs)
+              .map(([key, value]) => `${key}: ${value}`)
+              .join(', ');
+            return `${detail.type}${attrStr ? ` (${attrStr})` : ''}`;
+          }).join('; ');
+        }
+
+        // Format price breakdown
+        let priceBreakdownText = 'N/A';
+        let priceComponents = [];
+        if (product.priceDetails && product.priceDetails.length > 0) {
+          priceComponents = product.priceDetails.map((price, idx) => {
+            return `${price.name || 'Component ' + (idx + 1)}: ${price.weight || 'N/A'} - ₹${price.value || 0}`;
+          });
+          priceBreakdownText = priceComponents.join('; ');
+        }
+
+        // Calculate subtotal from price details
+        const calculatedSubtotal = product.priceDetails?.reduce((sum, price) => {
+          return sum + (parseFloat(price.value) || 0);
+        }, 0) || 0;
+
+        // Calculate total (subtotal + GST)
+        const calculatedTotal = calculatedSubtotal + (parseFloat(product.gst) || 0);
+
+        return {
+          'S.No': index + 1,
+          'Product ID': product._id,
+          'Name': product.name || 'N/A',
+          'Brand': product.brand || 'N/A',
+          'Description': product.description || 'N/A',
+          'SKU ID': product.skuId || 'N/A',
+          'Category': product.categories || 'N/A',
+          'Product Details': productDetailsText,
+          'Price Breakdown': priceBreakdownText,
+          'Price Component 1': product.priceDetails?.[0] ? `${product.priceDetails[0].name || 'N/A'}: ${product.priceDetails[0].weight || 'N/A'} - ₹${product.priceDetails[0].value || 0}` : 'N/A',
+          'Price Component 2': product.priceDetails?.[1] ? `${product.priceDetails[1].name || 'N/A'}: ${product.priceDetails[1].weight || 'N/A'} - ₹${product.priceDetails[1].value || 0}` : 'N/A',
+          'Price Component 3': product.priceDetails?.[2] ? `${product.priceDetails[2].name || 'N/A'}: ${product.priceDetails[2].weight || 'N/A'} - ₹${product.priceDetails[2].value || 0}` : 'N/A',
+          'Price Component 4': product.priceDetails?.[3] ? `${product.priceDetails[3].name || 'N/A'}: ${product.priceDetails[3].weight || 'N/A'} - ₹${product.priceDetails[3].value || 0}` : 'N/A',
+          'Price Component 5': product.priceDetails?.[4] ? `${product.priceDetails[4].name || 'N/A'}: ${product.priceDetails[4].weight || 'N/A'} - ₹${product.priceDetails[4].value || 0}` : 'N/A',
+          'Subtotal (from Price Details)': calculatedSubtotal,
+          'GST': product.gst || 0,
+          'Total (Subtotal + GST)': calculatedTotal,
+          'Selling Price': product.sellingprice || 0,
+          'Weight': product.subtotal?.weight || 'N/A',
+          'Discount': product.Discount || 0,
+          'Discount Available': product.isDiscountAvailable ? 'Yes' : 'No',
+          'Selected Carat': product.selectedCaret || 'N/A',
+          'Caret Options': product.caretOptions?.join(', ') || 'N/A',
+          'Stock': product.stock || 0,
+          'Status': product.active ? 'Active' : 'Inactive',
+          'Currently Not Available': product.CurrentlyNotAvailable ? 'Yes' : 'No',
+          'Trending': product.trending ? 'Yes' : 'No',
+          'Popular': product.popular ? 'Yes' : 'No',
+          'Rating': product.rating?.value || 0,
+          'Rating Count': product.rating?.count || 0,
+          'Images Count': product.images?.length || 0,
+          'Created At': product.createdAt ? new Date(product.createdAt).toLocaleDateString() : 'N/A',
+          'Updated At': product.updatedAt ? new Date(product.updatedAt).toLocaleDateString() : 'N/A'
+        };
+      });
 
       // Create a new workbook
       const workbook = XLSX.utils.book_new();
@@ -116,20 +161,33 @@ const Products = () => {
         { wch: 25 }, // Product ID
         { wch: 30 }, // Name
         { wch: 20 }, // Brand
+        { wch: 40 }, // Description
         { wch: 20 }, // SKU ID
         { wch: 15 }, // Category
+        { wch: 50 }, // Product Details
+        { wch: 60 }, // Price Breakdown
+        { wch: 30 }, // Price Component 1
+        { wch: 30 }, // Price Component 2
+        { wch: 30 }, // Price Component 3
+        { wch: 30 }, // Price Component 4
+        { wch: 30 }, // Price Component 5
+        { wch: 20 }, // Subtotal (from Price Details)
+        { wch: 12 }, // GST
+        { wch: 18 }, // Total (Subtotal + GST)
         { wch: 15 }, // Selling Price
+        { wch: 10 }, // Weight
+        { wch: 12 }, // Discount
+        { wch: 18 }, // Discount Available
+        { wch: 15 }, // Selected Carat
+        { wch: 20 }, // Caret Options
         { wch: 10 }, // Stock
         { wch: 10 }, // Status
+        { wch: 20 }, // Currently Not Available
         { wch: 10 }, // Trending
         { wch: 10 }, // Popular
         { wch: 10 }, // Rating
         { wch: 12 }, // Rating Count
-        { wch: 10 }, // Weight
-        { wch: 12 }, // Total
-        { wch: 10 }, // GST
-        { wch: 15 }, // Selected Carat
-        { wch: 20 }, // Caret Options
+        { wch: 12 }, // Images Count
         { wch: 15 }, // Created At
         { wch: 15 }  // Updated At
       ];

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '@/utils/axios';
+import { useGetAllCategoriesQuery } from '@/store/api/product/productApi';
 
 // Local minimal UI primitives to avoid external dependencies
 const Card = ({ children, className = '' }) => (
@@ -60,6 +61,20 @@ const Banners = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [selectedCategory, setSelectedCategory] = useState('all');
+
+  // Extract unique banner categories from existing banners
+  const getBannerCategories = () => {
+    const categorySet = new Set();
+    banners.forEach(banner => {
+      if (banner.category && banner.category.trim()) {
+        categorySet.add(banner.category.trim());
+      }
+    });
+    return Array.from(categorySet).sort();
+  };
+
+  const bannerCategories = getBannerCategories();
 
   // Form state
   const [formData, setFormData] = useState({
@@ -174,11 +189,46 @@ const Banners = () => {
     setFormData({
       title: '',
       position: 0,
-      isActive: true
+      isActive: true,
+      category: ''
     });
     setImagePreview(null);
     setImageFile(null);
     setEditingBanner(null);
+  };
+
+  // Group banners by category
+  const groupBannersByCategory = () => {
+    const grouped = {};
+    banners.forEach(banner => {
+      const category = banner.category || 'Uncategorized';
+      if (!grouped[category]) {
+        grouped[category] = [];
+      }
+      grouped[category].push(banner);
+    });
+    return grouped;
+  };
+
+  // Get filtered and grouped banners
+  const getFilteredBanners = () => {
+    let filtered = banners;
+    
+    // Filter by status
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(banner => 
+        filterStatus === 'active' ? banner.isActive : !banner.isActive
+      );
+    }
+    
+    // Filter by category
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter(banner => 
+        (banner.category || 'Uncategorized') === selectedCategory
+      );
+    }
+    
+    return filtered;
   };
 
   // Open inline uploader for creating new banner
@@ -291,15 +341,20 @@ const Banners = () => {
       {/* Filters */}
       <Card className="p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
-            <Textinput
-              type="text"
-              placeholder="Search banners..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div> */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+            <Select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+            >
+              <option value="all">All Categories</option>
+              {bannerCategories.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </Select>
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
             <Select
@@ -311,12 +366,6 @@ const Banners = () => {
               <option value="inactive">Inactive Only</option>
             </Select>
           </div>
-          {/* <div className="flex items-end">
-            <Button onClick={fetchBanners} className="w-full">
-              <Icon icon="heroicons:magnifying-glass" className="w-5 h-5 mr-2" />
-              Search
-            </Button>
-          </div> */}
         </div>
       </Card>
 
@@ -338,13 +387,24 @@ const Banners = () => {
             </div>
             <div>
               <label className="block text-sm mb-1">Category</label>
-              <Select name="category" value={formData.category} onChange={handleInputChange}>
-                <option value="">Select category</option>
-                <option value="main">Main</option>
-                <option value="top-collections">Top collections</option>
-                <option value="ecommerce">Ecommerce</option>
-                <option value="offer&deals">Offer & Deals</option>
-              </Select>
+              <Textinput 
+                name="category" 
+                value={formData.category} 
+                onChange={handleInputChange}
+                placeholder="Enter category name (e.g., main, top-collections, ecommerce)"
+                list="category-suggestions"
+              />
+              <datalist id="category-suggestions">
+                {bannerCategories.map((category) => (
+                  <option key={category} value={category} />
+                ))}
+                <option value="main" />
+                <option value="top-collections" />
+                <option value="ecommerce" />
+                <option value="offer&deals" />
+                <option value="home" />
+                <option value="featured" />
+              </datalist>
             </div>
             <div className="flex items-center gap-2">
               <Switch name="isActive" checked={formData.isActive} onChange={handleInputChange} />
@@ -362,26 +422,64 @@ const Banners = () => {
         </div>
       )}
 
-      {/* Banners Grid */}
-      {banners.length === 0 ? (
+      {/* Banners Grid - Grouped by Category */}
+      {(() => {
+        const filteredBanners = getFilteredBanners();
+        const groupedBanners = groupBannersByCategory();
+        const filteredGrouped = {};
+        
+        // Filter grouped banners based on selected category and status
+        Object.keys(groupedBanners).forEach(category => {
+          if (selectedCategory === 'all' || category === selectedCategory) {
+            filteredGrouped[category] = groupedBanners[category].filter(banner => {
+              if (filterStatus === 'all') return true;
+              return filterStatus === 'active' ? banner.isActive : !banner.isActive;
+            });
+            // Only add category if it has banners after filtering
+            if (filteredGrouped[category].length === 0) {
+              delete filteredGrouped[category];
+            }
+          }
+        });
+
+        if (filteredBanners.length === 0) {
+          return (
         <Card className="p-8 text-center">
           <Icon icon="heroicons:photo" className="w-16 h-16 mx-auto text-gray-400 mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No Banners Found</h3>
           <p className="text-gray-600 mb-4">
-            {searchTerm || filterStatus !== 'all' 
+                {selectedCategory !== 'all' || filterStatus !== 'all'
               ? 'No banners match your current filters.' 
               : 'Get started by creating your first banner.'}
           </p>
-          {!searchTerm && filterStatus === 'all' && (
+              {selectedCategory === 'all' && filterStatus === 'all' && (
             <Button onClick={openCreateModal} className="bg-blue-600 hover:bg-blue-700">
               <Icon icon="heroicons:plus" className="w-5 h-5 mr-2" />
               Create Your First Banner
             </Button>
           )}
         </Card>
-      ) : (
+          );
+        }
+
+        return (
+          <div className="space-y-8">
+            {Object.keys(filteredGrouped).map((category) => {
+              const categoryBanners = filteredGrouped[category];
+              if (categoryBanners.length === 0) return null;
+              
+              return (
+                <div key={category} className="space-y-4">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <h2 className="text-xl font-bold text-gray-900">
+                      {category}
+                      <span className="ml-2 text-sm font-normal text-gray-500">
+                        ({categoryBanners.length} {categoryBanners.length === 1 ? 'banner' : 'banners'})
+                      </span>
+                    </h2>
+                  </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {banners.map((banner) => (
+                    {categoryBanners.map((banner) => (
           <Card key={banner._id} className="overflow-hidden">
             <div className="relative">
               <img
@@ -401,7 +499,7 @@ const Banners = () => {
             </div>
             
             <div className="p-4">
-              <h3 className="font-semibold text-lg text-gray-900 mb-2">{banner.title}</h3>
+                          <h3 className="font-semibold text-lg text-gray-900 mb-2">{banner.title || 'Untitled'}</h3>
               {banner.description && (
                 <p className="text-gray-600 text-sm mb-3 line-clamp-2">{banner.description}</p>
               )}
@@ -411,16 +509,16 @@ const Banners = () => {
                   <span>Position:</span>
                   <span>{banner.position}</span>
                 </div>
+                            {banner.targetAudience && (
                 <div className="flex justify-between">
                   <span>Target:</span>
                   <span className="capitalize">{banner.targetAudience}</span>
                 </div>
-                {banner.category && (
+                            )}
                   <div className="flex justify-between">
                     <span>Category:</span>
-                    <span>{banner.category}</span>
+                              <span className="font-medium">{category}</span>
                   </div>
-                )}
                 <div className="flex justify-between">
                   <span>Views:</span>
                   <span>{banner.views || 0}</span>
@@ -443,7 +541,12 @@ const Banners = () => {
           </Card>
         ))}
         </div>
-      )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* Pagination */}
       {totalPages > 1 && (

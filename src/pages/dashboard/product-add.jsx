@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAddProductMutation, useUpdateProductMutation, useGetProductByIdQuery, useGetAllCategoriesQuery } from '@/store/api/product/productApi';
 import { useUploadMultipleImagesMutation, useUploadSingleImageMutation } from '@/store/api/image/imageApi';
+import { useGetInvestmentSettingsQuery } from '@/store/api/utils/utilsApi';
 import Button from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
 import { toast } from 'react-toastify';
@@ -151,6 +152,7 @@ const ProductAdd = () => {
       count: 0
     },
     selectedCaret: '',
+    metalType: 'gold', // 'gold' or 'silver'
     productDetails: [],
     priceDetails: [],
     subtotal: {
@@ -164,6 +166,7 @@ const ProductAdd = () => {
 
   const [uploadedImages, setUploadedImages] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
+  const isCalculatingRef = useRef(false);
 
   const [addProduct, { isLoading: isAdding }] = useAddProductMutation();
   const [updateProduct, { isLoading: isUpdating }] = useUpdateProductMutation();
@@ -171,8 +174,17 @@ const ProductAdd = () => {
   const [uploadSingleImage] = useUploadSingleImageMutation();
   const { data: productResponse, isLoading: isLoadingProduct, error: productError } = useGetProductByIdQuery(id, { skip: !isEdit });
   const { data: categoriesResponse } = useGetAllCategoriesQuery();
+  const { data: investmentSettingsData } = useGetInvestmentSettingsQuery();
 
   const categories = categoriesResponse?.data?.categories ?? categoriesResponse?.categories ?? categoriesResponse?.data ?? [];
+  
+  // Get current metal prices from investment settings
+  const investmentSettings = investmentSettingsData?.data;
+  const goldPrice24kt = investmentSettings?.goldPrice24kt || investmentSettings?.goldPrice || 0;
+  const goldPrice22kt = investmentSettings?.goldPrice22kt || 0;
+  const goldPrice18kt = investmentSettings?.goldPrice18kt || 0;
+  const silverPrice = investmentSettings?.silverPrice || 0;
+  const silverPrice925 = investmentSettings?.silverRate925 || 0;
 
   // Extract product from API response - handle different response structures
   const product = React.useMemo(() => {
@@ -221,8 +233,13 @@ const ProductAdd = () => {
         skuId: product.skuId || '',
         rating: product.rating || { value: 0, count: 0 },
         selectedCaret: product.selectedCaret || '',
+        metalType: product.metalType || (product.selectedCaret?.toLowerCase().includes('silver') ? 'silver' : 'gold'),
         productDetails: product.productDetails || [],
-        priceDetails: product.priceDetails || [],
+        priceDetails: (product.priceDetails || []).map(detail => ({
+          name: detail.name || '',
+          weight: detail.weight || '',
+          value: typeof detail.value === 'number' ? detail.value : parseFloat(detail.value || 0)
+        })),
         subtotal: product.subtotal || { weight: '' },
         Discount: product.Discount || 0,
         isDiscountAvaiable: product.isDiscountAvaiable || false,
@@ -246,10 +263,19 @@ const ProductAdd = () => {
         }
       }));
     } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: type === 'checkbox' ? checked : value
-      }));
+      setFormData(prev => {
+        const updated = {
+          ...prev,
+          [name]: type === 'checkbox' ? checked : value
+        };
+        
+        // Reset selectedCaret when metal type changes
+        if (name === 'metalType') {
+          updated.selectedCaret = '';
+        }
+        
+        return updated;
+      });
     }
   };
 
@@ -397,6 +423,302 @@ const ProductAdd = () => {
       priceDetails: prev.priceDetails.filter((_, i) => i !== index)
     }));
   };
+
+  // Calculate metal price based on type, karat, and weight
+  const getMetalPrice = (metalType, selectedCaret, weight) => {
+    if (!weight || weight === '') return 0;
+    
+    // Extract weight number (remove 'g', 'gm', etc.)
+    const weightNum = parseFloat(weight.toString().replace(/[^\d.]/g, '')) || 0;
+    if (weightNum === 0) return 0;
+
+    if (metalType === 'gold') {
+      let pricePerGram = 0;
+      if (selectedCaret === '24K') {
+        pricePerGram = goldPrice24kt;
+      } else if (selectedCaret === '22K') {
+        pricePerGram = goldPrice22kt || (goldPrice24kt * 0.916);
+      } else if (selectedCaret === '18K') {
+        pricePerGram = goldPrice18kt || (goldPrice24kt * 0.75);
+      }
+      return pricePerGram * weightNum;
+    } else if (metalType === 'silver') {
+      let pricePerGram = 0;
+      if (selectedCaret === 'Pure Silver 999') {
+        pricePerGram = silverPrice;
+      } else if (selectedCaret === 'Silver 925') {
+        pricePerGram = silverPrice925 || (silverPrice * 0.925);
+      }
+      return pricePerGram * weightNum;
+    }
+    return 0;
+  };
+
+  // Function to recalculate price details
+  const recalculatePriceDetails = useCallback((currentFormData) => {
+    if (!currentFormData.metalType || !currentFormData.selectedCaret || !investmentSettings) return null;
+    if (isCalculatingRef.current) return null; // Prevent recursive calls
+
+    isCalculatingRef.current = true;
+    // Create a deep copy of priceDetails to avoid mutating frozen objects from API
+    const priceDetails = currentFormData.priceDetails.map(detail => ({
+      name: detail.name || '',
+      weight: detail.weight || '',
+      value: typeof detail.value === 'number' ? detail.value : parseFloat(detail.value || 0)
+    }));
+    let metalIndex = -1;
+    let metalDetail = null;
+
+    // Find or create metal entry
+    const metalName = currentFormData.metalType === 'gold' ? 'Gold' : 'Silver';
+    metalIndex = priceDetails.findIndex(d => 
+      d.name?.toLowerCase().includes(metalName.toLowerCase())
+    );
+
+    if (metalIndex === -1) {
+      // Create new metal entry if not found
+      priceDetails.push({ name: metalName, weight: '', value: 0 });
+      metalIndex = priceDetails.length - 1;
+    }
+
+    // Create a new object instead of mutating the existing one
+    metalDetail = { 
+      name: priceDetails[metalIndex].name || metalName,
+      weight: priceDetails[metalIndex].weight || '',
+      value: typeof priceDetails[metalIndex].value === 'number' ? priceDetails[metalIndex].value : parseFloat(priceDetails[metalIndex].value || 0)
+    };
+    
+    // Update metal name if it doesn't match
+    if (!metalDetail.name?.toLowerCase().includes(metalName.toLowerCase())) {
+      metalDetail.name = metalName;
+    }
+
+    // Calculate metal value if weight is provided
+    if (metalDetail.weight) {
+      const metalValue = getMetalPrice(currentFormData.metalType, currentFormData.selectedCaret, metalDetail.weight);
+      metalDetail.value = parseFloat(metalValue.toFixed(2));
+    } else {
+      // If no weight, use existing value or 0
+      metalDetail.value = parseFloat(metalDetail.value || 0);
+    }
+    
+    // Update the priceDetails array with the new metalDetail object
+    priceDetails[metalIndex] = metalDetail;
+
+    // Calculate stones total (preserve existing stone entries)
+    let stonesTotal = 0;
+    const stoneEntries = [];
+    priceDetails.forEach((detail, index) => {
+      if (index !== metalIndex) {
+        const name = detail.name?.toLowerCase() || '';
+        if (name.includes('stone') || name.includes('diamond') || name.includes('ruby') || 
+            name.includes('emerald') || name.includes('sapphire') || name.includes('pearl')) {
+          stonesTotal += parseFloat(detail.value || 0);
+          stoneEntries.push(detail);
+        }
+      }
+    });
+
+    // Calculate metal total
+    const metalTotal = parseFloat(metalDetail.value || 0);
+
+    // Calculate making charges (percentage of metal + stones)
+    let makingChargesIndex = priceDetails.findIndex(d => 
+      d.name?.toLowerCase().includes('making charges')
+    );
+    
+    let makingChargesPct = 0;
+    if (makingChargesIndex >= 0) {
+      const makingChargesWeight = priceDetails[makingChargesIndex].weight?.toString() || '';
+      makingChargesPct = parseFloat(makingChargesWeight.replace(/[^\d.]/g, '')) || 0;
+    }
+
+    const baseTotal = metalTotal + stonesTotal;
+    const makingChargesAmount = (baseTotal * makingChargesPct) / 100;
+
+    // Step 1: Calculate Subtotal = Metal + Stones + Making Charges
+    const subtotal = baseTotal + makingChargesAmount;
+
+    // Step 2: Calculate Discount from Subtotal (if discount percentage is entered)
+    const discountPct = currentFormData.Discount || 0;
+    const discountAmount = (subtotal * discountPct) / 100; // Discount calculated from subtotal
+    
+    // Step 3: Calculate Subtotal After Discount
+    const subtotalAfterDiscount = subtotal - discountAmount;
+
+    // Step 4: Calculate GST from Subtotal After Discount (if GST percentage is entered)
+    const gstPct = currentFormData.gst || 0;
+    const gstAmount = (subtotalAfterDiscount * gstPct) / 100; // GST calculated from subtotal after discount
+
+    // Step 5: Calculate Final Grand Total = Subtotal After Discount + GST
+    const finalTotal = subtotalAfterDiscount + gstAmount;
+
+    // Rebuild price details: keep metal, stones, and making charges; remove and re-add system entries
+    const entriesToRemove = ['sub total', 'subtotal', 'discount', 'gst', 'grand total', 'final price', 'total'];
+    const filteredDetails = priceDetails.filter((detail, index) => {
+      if (index === metalIndex) return true; // Keep metal
+      const name = detail.name?.toLowerCase() || '';
+      if (name.includes('making charges')) return true; // Keep making charges
+      if (name.includes('stone') || name.includes('diamond') || name.includes('ruby') || 
+          name.includes('emerald') || name.includes('sapphire') || name.includes('pearl')) {
+        return true; // Keep stones
+      }
+      // Remove system entries (will be re-added)
+      return !entriesToRemove.some(entry => name.includes(entry));
+    });
+
+    // Update making charges value
+    if (makingChargesIndex >= 0) {
+      const filteredMakingChargesIndex = filteredDetails.findIndex(d => 
+        d.name?.toLowerCase().includes('making charges')
+      );
+      if (filteredMakingChargesIndex >= 0) {
+        filteredDetails[filteredMakingChargesIndex].value = parseFloat(makingChargesAmount.toFixed(2));
+      }
+    } else if (makingChargesPct > 0) {
+      // Add making charges if percentage is set but entry doesn't exist
+      filteredDetails.push({
+        name: 'Making Charges',
+        weight: `${makingChargesPct}%`,
+        value: parseFloat(makingChargesAmount.toFixed(2))
+      });
+    }
+
+    // Add system entries in order
+    const newPriceDetails = [...filteredDetails];
+    const metalWeight = (metalDetail.weight || '').toString().replace(/[^\d.]/g, '');
+    const weightDisplay = metalWeight ? `${metalWeight}g Gross Wt.` : 'Gross Wt.';
+    
+    // Always show Sub Total
+    newPriceDetails.push({ 
+      name: 'Sub Total', 
+      weight: weightDisplay, 
+      value: parseFloat(subtotal.toFixed(2)) 
+    });
+    
+    // Show Discount if discount percentage is entered (even if amount is 0, show it)
+    if (discountPct > 0) {
+      newPriceDetails.push({ 
+        name: 'Discount', 
+        weight: `${discountPct}%`, 
+        value: parseFloat(discountAmount.toFixed(2)) 
+      });
+    }
+    
+    // Always show Sub Total After Discount
+    newPriceDetails.push({ 
+      name: 'Sub Total After Discount', 
+      weight: 'After discount', 
+      value: parseFloat(subtotalAfterDiscount.toFixed(2)) 
+    });
+    
+    // Always show GST (even if 0 or percentage is 0)
+    newPriceDetails.push({ 
+      name: 'GST', 
+      weight: `${gstPct}%`, 
+      value: parseFloat(gstAmount.toFixed(2)) 
+    });
+    
+    // Always show Grand Total (final value)
+    newPriceDetails.push({ 
+      name: 'Grand Total', 
+      weight: 'Final Price', 
+      value: parseFloat(finalTotal.toFixed(2)) 
+    });
+
+    isCalculatingRef.current = false;
+    return newPriceDetails;
+  }, [formData.metalType, formData.selectedCaret, formData.Discount, formData.gst, goldPrice24kt, goldPrice22kt, goldPrice18kt, silverPrice, silverPrice925, investmentSettings]);
+
+  // Auto-calculate when relevant fields change
+  useEffect(() => {
+    // Allow recalculation even if metal type/karat not set, if Discount or GST is being entered
+    if (!investmentSettings) return;
+    if (isCalculatingRef.current) return;
+    
+    // If Discount or GST is being changed, recalculate even without metal selection
+    if (formData.Discount > 0 || formData.gst > 0) {
+      // Still need metal type and karat for proper calculation, but allow partial updates
+      if (!formData.metalType || !formData.selectedCaret) {
+        // If no metal selected, still try to recalculate with existing price details
+        const existingSubtotal = formData.priceDetails.find(d => 
+          d.name?.toLowerCase().includes('sub total') && !d.name?.toLowerCase().includes('after')
+        );
+        if (existingSubtotal) {
+          const subtotal = parseFloat(existingSubtotal.value || 0);
+          const discountPct = formData.Discount || 0;
+          const discountAmount = (subtotal * discountPct) / 100;
+          const subtotalAfterDiscount = subtotal - discountAmount;
+          const gstPct = formData.gst || 0;
+          const gstAmount = (subtotalAfterDiscount * gstPct) / 100;
+          const finalTotal = subtotalAfterDiscount + gstAmount;
+          
+          // Update only discount, GST, and totals
+          const newPriceDetails = formData.priceDetails.map(detail => {
+            const name = detail.name?.toLowerCase() || '';
+            if (name.includes('discount')) {
+              return { ...detail, weight: `${discountPct}%`, value: parseFloat(discountAmount.toFixed(2)) };
+            }
+            if (name.includes('sub total after discount')) {
+              return { ...detail, value: parseFloat(subtotalAfterDiscount.toFixed(2)) };
+            }
+            if (name.includes('gst') && !name.includes('cgst') && !name.includes('sgst')) {
+              return { ...detail, weight: `${gstPct}%`, value: parseFloat(gstAmount.toFixed(2)) };
+            }
+            if (name.includes('grand total')) {
+              return { ...detail, value: parseFloat(finalTotal.toFixed(2)) };
+            }
+            return detail;
+          });
+          
+          // Add missing entries if they don't exist
+          if (!newPriceDetails.find(d => d.name?.toLowerCase().includes('discount')) && discountPct > 0) {
+            const subtotalIndex = newPriceDetails.findIndex(d => 
+              d.name?.toLowerCase().includes('sub total') && !d.name?.toLowerCase().includes('after')
+            );
+            if (subtotalIndex >= 0) {
+              newPriceDetails.splice(subtotalIndex + 1, 0, {
+                name: 'Discount',
+                weight: `${discountPct}%`,
+                value: parseFloat(discountAmount.toFixed(2))
+              });
+            }
+          }
+          
+          setFormData(prev => ({ ...prev, priceDetails: newPriceDetails }));
+          return;
+        }
+      }
+    }
+    
+    // Full recalculation when metal type and karat are set
+    if (!formData.metalType || !formData.selectedCaret) return;
+    
+    const newPriceDetails = recalculatePriceDetails(formData);
+    if (newPriceDetails) {
+      // Check if metal entry has weight before updating
+      const metalName = formData.metalType === 'gold' ? 'Gold' : 'Silver';
+      const metalEntry = formData.priceDetails.find(d => 
+        d.name?.toLowerCase().includes(metalName.toLowerCase())
+      );
+      
+      // Always update if:
+      // 1. Metal has weight (for initial calculation)
+      // 2. Discount or GST changed (for recalculation)
+      // 3. Length changed (new entries added)
+      const shouldUpdate = metalEntry?.weight || 
+                          newPriceDetails.length !== formData.priceDetails.length ||
+                          formData.Discount > 0 || 
+                          formData.gst > 0;
+      
+      if (shouldUpdate) {
+        setFormData(prev => ({
+          ...prev,
+          priceDetails: newPriceDetails
+        }));
+      }
+    }
+  }, [formData.metalType, formData.selectedCaret, formData.Discount, formData.gst, goldPrice24kt, goldPrice22kt, goldPrice18kt, silverPrice, silverPrice925, investmentSettings, recalculatePriceDetails]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -714,19 +1036,72 @@ const ProductAdd = () => {
                 </div>
               </div>
 
-              {/* Selected Caret */}
+              {/* Metal Type Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                  Metal Type
+                </label>
+                <div className="flex gap-6">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="radio"
+                      name="metalType"
+                      value="gold"
+                      checked={formData.metalType === 'gold'}
+                      onChange={handleInputChange}
+                      className="h-4 w-4 text-yellow-600 focus:ring-yellow-500 border-gray-300"
+                    />
+                    <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center">
+                      <Icon icon="ph:medal" className="text-yellow-500 mr-1" />
+                      Gold
+                    </span>
+                  </label>
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="radio"
+                      name="metalType"
+                      value="silver"
+                      checked={formData.metalType === 'silver'}
+                      onChange={handleInputChange}
+                      className="h-4 w-4 text-gray-400 focus:ring-gray-500 border-gray-300"
+                    />
+                    <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center">
+                      <Icon icon="ph:medal" className="text-gray-400 mr-1" />
+                      Silver
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Karat/Purity Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Selected Caret
+                  {formData.metalType === 'gold' ? 'Gold Karat' : 'Silver Purity'}
                 </label>
-                <input
-                  type="text"
-                  name="selectedCaret"
-                  value={formData.selectedCaret}
-                  onChange={handleInputChange}
-                  placeholder="e.g., 24K"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
-                />
+                {formData.metalType === 'gold' ? (
+                  <select
+                    name="selectedCaret"
+                    value={formData.selectedCaret}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
+                  >
+                    <option value="">Select Karat</option>
+                    <option value="24K">24 Karat (Pure Gold - 99.9%)</option>
+                    <option value="22K">22 Karat (91.67%)</option>
+                    <option value="18K">18 Karat (75%)</option>
+                  </select>
+                ) : (
+                  <select
+                    name="selectedCaret"
+                    value={formData.selectedCaret}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
+                  >
+                    <option value="">Select Purity</option>
+                    <option value="Pure Silver 999">Pure Silver 999 (99.9%)</option>
+                    <option value="Silver 925">Silver 925 (92.5% - Sterling Silver)</option>
+                  </select>
+                )}
               </div>
 
               {/* Pricing Details */}
@@ -754,7 +1129,20 @@ const ProductAdd = () => {
                       type="number"
                       name="Discount"
                       value={formData.Discount}
-                      onChange={handleInputChange}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value) || 0;
+                        setFormData(prev => {
+                          const updated = { ...prev, Discount: value };
+                          // Trigger immediate recalculation
+                          setTimeout(() => {
+                            const recalculated = recalculatePriceDetails(updated);
+                            if (recalculated) {
+                              setFormData(prevState => ({ ...prevState, priceDetails: recalculated }));
+                            }
+                          }, 0);
+                          return updated;
+                        });
+                      }}
                       min="0"
                       max="100"
                       step="0.01"
@@ -769,7 +1157,20 @@ const ProductAdd = () => {
                       type="number"
                       name="gst"
                       value={formData.gst}
-                      onChange={handleInputChange}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value) || 0;
+                        setFormData(prev => {
+                          const updated = { ...prev, gst: value };
+                          // Trigger immediate recalculation
+                          setTimeout(() => {
+                            const recalculated = recalculatePriceDetails(updated);
+                            if (recalculated) {
+                              setFormData(prevState => ({ ...prevState, priceDetails: recalculated }));
+                            }
+                          }, 0);
+                          return updated;
+                        });
+                      }}
                       min="0"
                       step="0.01"
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
@@ -824,6 +1225,22 @@ const ProductAdd = () => {
 
               {/* Price Details */}
               <div>
+                {/* Information Note */}
+                <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                  <div className="flex items-start">
+                    <Icon icon="heroicons-outline:information-circle" className="w-5 h-5 text-blue-600 dark:text-blue-400 mr-2 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-blue-800 dark:text-blue-200">
+                      <p className="font-semibold mb-2">Important Notes:</p>
+                      <ul className="list-disc list-inside space-y-1">
+                        <li>Making Charges, Discount, and GST should be entered as <strong>percentage (%)</strong></li>
+                        <li>For stones (Diamond, Ruby, etc.), enter weight in <strong>karat</strong> and amount</li>
+                        <li>For Gold and Silver, enter weight in <strong>grams (gms)</strong> and amount</li>
+                        {/* <li>For Gold and Silver, enter weight in <strong>grams (gms)</strong></li> */}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+                
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-medium text-gray-900 dark:text-white">Price Details</h3>
                   <Button
@@ -842,9 +1259,26 @@ const ProductAdd = () => {
                         type="text"
                         value={detail.name}
                         onChange={(e) => {
-                          const newDetails = [...formData.priceDetails];
-                          newDetails[index] = { ...detail, name: e.target.value };
-                          setFormData(prev => ({ ...prev, priceDetails: newDetails }));
+                          // Create completely new objects to avoid mutating frozen objects
+                          const newDetails = formData.priceDetails.map((d, i) => 
+                            i === index 
+                              ? { name: e.target.value, weight: d.weight || '', value: typeof d.value === 'number' ? d.value : parseFloat(d.value || 0) }
+                              : { name: d.name || '', weight: d.weight || '', value: typeof d.value === 'number' ? d.value : parseFloat(d.value || 0) }
+                          );
+                          setFormData(prev => {
+                            const updated = { ...prev, priceDetails: newDetails };
+                            // Trigger recalculation if making charges percentage changes
+                            const name = e.target.value?.toLowerCase() || '';
+                            if (name.includes('making charges')) {
+                              setTimeout(() => {
+                                const recalculated = recalculatePriceDetails(updated);
+                                if (recalculated) {
+                                  setFormData(prevState => ({ ...prevState, priceDetails: recalculated }));
+                                }
+                              }, 0);
+                            }
+                            return updated;
+                          });
                         }}
                         placeholder="Name (e.g., Gold, Stone, Making Charges)"
                         className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
@@ -853,20 +1287,59 @@ const ProductAdd = () => {
                         type="text"
                         value={detail.weight || ''}
                         onChange={(e) => {
-                          const newDetails = [...formData.priceDetails];
-                          newDetails[index] = { ...detail, weight: e.target.value };
-                          setFormData(prev => ({ ...prev, priceDetails: newDetails }));
+                          // Create completely new objects to avoid mutating frozen objects
+                          const newDetails = formData.priceDetails.map((d, i) => 
+                            i === index 
+                              ? { name: d.name || '', weight: e.target.value, value: typeof d.value === 'number' ? d.value : parseFloat(d.value || 0) }
+                              : { name: d.name || '', weight: d.weight || '', value: typeof d.value === 'number' ? d.value : parseFloat(d.value || 0) }
+                          );
+                          setFormData(prev => {
+                            const updated = { ...prev, priceDetails: newDetails };
+                            // Trigger recalculation if this is a metal entry or making charges
+                            const name = detail.name?.toLowerCase() || '';
+                            const metalName = prev.metalType === 'gold' ? 'Gold' : 'Silver';
+                            if (name.includes(metalName.toLowerCase()) || name.includes('making charges')) {
+                              // Recalculate after state update
+                              setTimeout(() => {
+                                const recalculated = recalculatePriceDetails(updated);
+                                if (recalculated) {
+                                  setFormData(prevState => ({ ...prevState, priceDetails: recalculated }));
+                                }
+                              }, 0);
+                            }
+                            return updated;
+                          });
                         }}
-                        placeholder="Weight (e.g., 2.903g)"
+                        placeholder="Weight (e.g., 2.903g) or % for Making Charges"
                         className="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
                       />
                       <input
                         type="number"
                         value={detail.value || ''}
                         onChange={(e) => {
-                          const newDetails = [...formData.priceDetails];
-                          newDetails[index] = { ...detail, value: e.target.value };
-                          setFormData(prev => ({ ...prev, priceDetails: newDetails }));
+                          // Create completely new objects to avoid mutating frozen objects
+                          const newValue = parseFloat(e.target.value) || 0;
+                          const newDetails = formData.priceDetails.map((d, i) => 
+                            i === index 
+                              ? { name: d.name || '', weight: d.weight || '', value: newValue }
+                              : { name: d.name || '', weight: d.weight || '', value: typeof d.value === 'number' ? d.value : parseFloat(d.value || 0) }
+                          );
+                          setFormData(prev => {
+                            const updated = { ...prev, priceDetails: newDetails };
+                            // Trigger recalculation if this affects totals (stones, making charges)
+                            const name = detail.name?.toLowerCase() || '';
+                            if (name.includes('stone') || name.includes('diamond') || name.includes('ruby') || 
+                                name.includes('emerald') || name.includes('sapphire') || name.includes('pearl') ||
+                                name.includes('making charges')) {
+                              setTimeout(() => {
+                                const recalculated = recalculatePriceDetails(updated);
+                                if (recalculated) {
+                                  setFormData(prevState => ({ ...prevState, priceDetails: recalculated }));
+                                }
+                              }, 0);
+                            }
+                            return updated;
+                          });
                         }}
                         placeholder="Value"
                         min="0"
@@ -883,6 +1356,110 @@ const ProductAdd = () => {
                     </div>
                   ))}
                 </div>
+                
+                {/* Price Calculation Summary */}
+                {(() => {
+                  const metalName = formData.metalType === 'gold' ? 'Gold' : 'Silver';
+                  const metalEntry = formData.priceDetails.find(d => 
+                    d.name?.toLowerCase().includes(metalName.toLowerCase())
+                  );
+                  const stonesTotal = formData.priceDetails
+                    .filter(d => {
+                      const name = d.name?.toLowerCase() || '';
+                      return (name.includes('stone') || name.includes('diamond') || name.includes('ruby') || 
+                              name.includes('emerald') || name.includes('sapphire') || name.includes('pearl')) &&
+                             !name.includes(metalName.toLowerCase());
+                    })
+                    .reduce((sum, d) => sum + (parseFloat(d.value) || 0), 0);
+                  const makingChargesEntry = formData.priceDetails.find(d => 
+                    d.name?.toLowerCase().includes('making charges')
+                  );
+                  const subtotalEntry = formData.priceDetails.find(d => 
+                    d.name?.toLowerCase().includes('sub total') && !d.name?.toLowerCase().includes('after')
+                  );
+                  const discountEntry = formData.priceDetails.find(d => 
+                    d.name?.toLowerCase().includes('discount')
+                  );
+                  const gstEntry = formData.priceDetails.find(d => 
+                    d.name?.toLowerCase().includes('gst') && !d.name?.toLowerCase().includes('cgst') && !d.name?.toLowerCase().includes('sgst')
+                  );
+                  const grandTotalEntry = formData.priceDetails.find(d => 
+                    d.name?.toLowerCase().includes('grand total')
+                  );
+
+                  if (!metalEntry || !metalEntry.weight) return null;
+
+                  return (
+                    <div className="mt-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                      <h4 className="text-sm font-semibold text-green-800 dark:text-green-200 mb-3 flex items-center">
+                        <Icon icon="ph:calculator" className="mr-2" />
+                        Price Calculation Summary
+                      </h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-700 dark:text-gray-300">
+                            {metalName} ({formData.selectedCaret}):
+                          </span>
+                          <span className="font-medium text-gray-900 dark:text-white">
+                            ₹{metalEntry.value?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+                          </span>
+                        </div>
+                        {stonesTotal > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-700 dark:text-gray-300">Stones:</span>
+                            <span className="font-medium text-gray-900 dark:text-white">
+                              ₹{stonesTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                        )}
+                        {makingChargesEntry && makingChargesEntry.value > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-700 dark:text-gray-300">
+                              Making Charges ({makingChargesEntry.weight}):
+                            </span>
+                            <span className="font-medium text-gray-900 dark:text-white">
+                              ₹{makingChargesEntry.value?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+                            </span>
+                          </div>
+                        )}
+                        {subtotalEntry && (
+                          <div className="flex justify-between pt-2 border-t border-green-200 dark:border-green-700">
+                            <span className="font-medium text-gray-900 dark:text-white">Sub Total:</span>
+                            <span className="font-semibold text-gray-900 dark:text-white">
+                              ₹{subtotalEntry.value?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+                            </span>
+                          </div>
+                        )}
+                        {discountEntry && discountEntry.value > 0 && (
+                          <div className="flex justify-between text-red-600 dark:text-red-400">
+                            <span>Discount ({discountEntry.weight}):</span>
+                            <span className="font-medium">
+                              -₹{discountEntry.value?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+                            </span>
+                          </div>
+                        )}
+                        {gstEntry && gstEntry.value > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-700 dark:text-gray-300">
+                              GST ({gstEntry.weight}):
+                            </span>
+                            <span className="font-medium text-gray-900 dark:text-white">
+                              ₹{gstEntry.value?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+                            </span>
+                          </div>
+                        )}
+                        {grandTotalEntry && (
+                          <div className="flex justify-between pt-2 border-t-2 border-green-300 dark:border-green-600">
+                            <span className="text-lg font-bold text-green-800 dark:text-green-200">Grand Total:</span>
+                            <span className="text-lg font-bold text-green-800 dark:text-green-200">
+                              ₹{grandTotalEntry.value?.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Submit Buttons */}

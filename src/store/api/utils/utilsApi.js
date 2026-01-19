@@ -65,6 +65,22 @@ export const utilsApi = apiSlice.injectEndpoints({
       invalidatesTags: ['Utils'],
     }),
 
+    // Get Appointment Option Status
+    getAppointmentOption: builder.query({
+      query: () => '/utils/appointmentOption',
+      providesTags: ['Utils'],
+    }),
+
+    // Update Appointment Option Status
+    updateAppointmentOption: builder.mutation({
+      query: (data) => ({
+        url: '/utils/admin/appointmentOption',
+        method: 'PUT',
+        body: data,
+      }),
+      invalidatesTags: ['Utils'],
+    }),
+
     // Get Policy by Type
     getPolicyByType: builder.query({
       query: (type) => `/utils/policies/${type}`,
@@ -110,6 +126,8 @@ export const {
   useCreateInvestmentSettingsMutation,
   useGetInvestmentOptionQuery,
   useUpdateInvestmentOptionMutation,
+  useGetAppointmentOptionQuery,
+  useUpdateAppointmentOptionMutation,
   useGetPolicyByTypeQuery,
   useGetAllPoliciesQuery,
   useCreateOrUpdatePolicyMutation,

@@ -3,7 +3,7 @@ import { getToken, isTokenExpired, clearAuth } from '@/utils/auth';
 
 const baseQueryWithAuth = async (args, api, extraOptions) => {
   const baseQuery = fetchBaseQuery({
-    baseUrl: "http://35.154.139.118/api/v0/invoices",
+    baseUrl: "http://localhost:4000/api/v0/invoices",
     prepareHeaders: (headers, { getState }) => {
       const token = getToken();
       if (token) {

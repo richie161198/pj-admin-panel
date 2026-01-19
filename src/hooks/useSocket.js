@@ -13,8 +13,8 @@ const useSocket = () => {
     if (!token) return;
 
     // Initialize socket connection
-    // const newSocket = io(process.env.REACT_APP_SOCKET_URL || 'http://35.154.139.118', {
-    const newSocket = io('http://35.154.139.118', {
+    // const newSocket = io(process.env.REACT_APP_SOCKET_URL || 'http://localhost:4000', {
+    const newSocket = io('http://localhost:4000', {
       auth: {
         token: token
       },

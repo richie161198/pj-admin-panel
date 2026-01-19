@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGetCustomerByIdQuery, useUpdateCustomerMutation, useDeleteCustomerMutation } from '@/store/api/auth/authApiSlice';
 import Button from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
 import { toast } from 'react-toastify';
 import LoadingIcon from '@/components/LoadingIcon';
+import Card from '@/components/ui/Card';
 
 const CustomerDetailsPage = () => {
   const { id } = useParams();
@@ -17,6 +18,30 @@ const CustomerDetailsPage = () => {
   // Extract customer from API response
   const customer = customerResponse?.details || customerResponse;
 
+  // State for modals
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showMessageModal, setShowMessageModal] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    name: '',
+    email: '',
+    phone: ''
+  });
+  const [messageData, setMessageData] = useState({
+    message: ''
+  });
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+
+  // Initialize edit form data when customer loads
+  React.useEffect(() => {
+    if (customer) {
+      setEditFormData({
+        name: customer.name || '',
+        email: customer.email || '',
+        phone: customer.phone || ''
+      });
+    }
+  }, [customer]);
+
   const handleDeleteCustomer = async () => {
     if (window.confirm('Are you sure you want to delete this customer? This action cannot be undone.')) {
       try {
@@ -24,7 +49,9 @@ const CustomerDetailsPage = () => {
         toast.success('Customer deleted successfully');
         navigate('/customers');
       } catch (error) {
-        toast.error('Failed to delete customer');
+        const errorMessage = error?.data?.message || error?.message || 'Failed to delete customer';
+        toast.error(errorMessage);
+        console.error('Delete customer error:', error);
       }
     }
   };
@@ -38,7 +65,73 @@ const CustomerDetailsPage = () => {
       toast.success(`Customer ${customer.active ? 'deactivated' : 'activated'} successfully`);
       refetch();
     } catch (error) {
-      toast.error('Failed to update customer status');
+      const errorMessage = error?.data?.message || error?.message || 'Failed to update customer status';
+      toast.error(errorMessage);
+      console.error('Update customer status error:', error);
+    }
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await updateCustomer({
+        id,
+        ...editFormData
+      }).unwrap();
+      toast.success('Customer updated successfully');
+      setShowEditModal(false);
+      refetch();
+    } catch (error) {
+      const errorMessage = error?.data?.message || error?.message || 'Failed to update customer';
+      toast.error(errorMessage);
+      console.error('Update customer error:', error);
+    }
+  };
+
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (!messageData.message.trim()) {
+      toast.error('Please enter a message');
+      return;
+    }
+
+    if (!customer.phone) {
+      toast.error('Customer phone number is not available');
+      return;
+    }
+
+    setIsSendingMessage(true);
+    try {
+      // Call the WhatsApp API endpoint
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const token = localStorage.getItem('adminToken') || localStorage.getItem('token');
+      
+      const response = await fetch(`${apiUrl}/api/v0/users/admin/sendWhatsAppMessage`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          phoneNumber: customer.phone,
+          message: messageData.message
+        })
+      });
+
+      const result = await response.json();
+      
+      if (result.status || result.success) {
+        toast.success('Message sent successfully');
+        setShowMessageModal(false);
+        setMessageData({ message: '' });
+      } else {
+        toast.error(result.message || 'Failed to send message');
+      }
+    } catch (error) {
+      console.error('Send message error:', error);
+      toast.error('Failed to send message. Please try again.');
+    } finally {
+      setIsSendingMessage(false);
     }
   };
 
@@ -95,7 +188,7 @@ const CustomerDetailsPage = () => {
         </div>
         <div className="flex space-x-3">
           <Button
-            onClick={() => navigate(`/customers/${id}/edit`)}
+            onClick={() => setShowEditModal(true)}
             className="btn btn-outline-secondary"
           >
             <Icon icon="ph:pencil" className="mr-2" />
@@ -109,6 +202,13 @@ const CustomerDetailsPage = () => {
             <Icon icon={customer.active ? 'ph:pause' : 'ph:play'} className="mr-2" />
             {customer.active ? 'Deactivate' : 'Activate'}
           </Button>
+          {/* <Button
+            onClick={() => setShowMessageModal(true)}
+            className="btn btn-outline-primary"
+          >
+            <Icon icon="ph:chat-circle" className="mr-2" />
+            Send Message
+          </Button> */}
           <Button
             onClick={handleDeleteCustomer}
             disabled={isDeleting}
@@ -315,14 +415,14 @@ const CustomerDetailsPage = () => {
                 View Orders
               </Button>
               <Button
-                onClick={() => navigate(`/customers/${id}/messages`)}
+                onClick={() => setShowMessageModal(true)}
                 className="btn btn-outline w-full justify-start"
               >
                 <Icon icon="ph:chat-circle" className="mr-2" />
                 Send Message
               </Button>
               <Button
-                onClick={() => navigate(`/customers/${id}/edit`)}
+                onClick={() => setShowEditModal(true)}
                 className="btn btn-outline w-full justify-start"
               >
                 <Icon icon="ph:pencil" className="mr-2" />
@@ -332,6 +432,149 @@ const CustomerDetailsPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Edit Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+          <div className="relative bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                Edit Customer
+              </h3>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <Icon icon="ph:x" className="text-xl" />
+              </button>
+            </div>
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Name *
+                </label>
+                <input
+                  type="text"
+                  value={editFormData.name}
+                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Email *
+                </label>
+                <input
+                  type="email"
+                  value={editFormData.email}
+                  onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Phone
+                </label>
+                <input
+                  type="tel"
+                  value={editFormData.phone}
+                  onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="btn btn-outline"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isUpdating}
+                  className="btn btn-primary"
+                >
+                  {isUpdating ? 'Updating...' : 'Update'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Send Message Modal */}
+      {showMessageModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+          <div className="relative bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                Send WhatsApp Message
+              </h3>
+              <button
+                onClick={() => {
+                  setShowMessageModal(false);
+                  setMessageData({ message: '' });
+                }}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <Icon icon="ph:x" className="text-xl" />
+              </button>
+            </div>
+            <form onSubmit={handleSendMessage} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  To: {customer.name} ({customer.phone || 'N/A'})
+                </label>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Message *
+                </label>
+                <textarea
+                  value={messageData.message}
+                  onChange={(e) => setMessageData({ message: e.target.value })}
+                  required
+                  rows={5}
+                  placeholder="Enter your message here..."
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setShowMessageModal(false);
+                    setMessageData({ message: '' });
+                  }}
+                  className="btn btn-outline"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isSendingMessage || !customer.phone}
+                  className="btn btn-primary"
+                >
+                  {isSendingMessage ? (
+                    <>
+                      <Icon icon="ph:spinner" className="animate-spin mr-2" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Icon icon="ph:paper-plane-tilt" className="mr-2" />
+                      Send
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

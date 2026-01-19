@@ -24,7 +24,7 @@ const Invoices = () => {
 
   const { data: invoicesData, isLoading, error, refetch } = useGetAllInvoicesQuery({
     page: currentPage,
-    limit: 10,
+    limit: 25,
     search: searchTerm,
     status: statusFilter !== 'all' ? statusFilter : undefined,
     startDate,
@@ -34,6 +34,7 @@ const Invoices = () => {
   const [deleteInvoice] = useDeleteInvoiceMutation();
 
   const invoices = invoicesData?.data || [];
+  const pagination = invoicesData?.pagination || {};
 
   // Clear filters
   const clearFilters = () => {
@@ -49,7 +50,7 @@ const Invoices = () => {
     try {
       toast.info('Preparing invoice for download...');
 
-      const response = await fetch(`http://35.154.139.118/api/v0/invoices/${invoiceId}/download`, {
+      const response = await fetch(`http://localhost:4000/api/v0/invoices/${invoiceId}/download`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -93,7 +94,7 @@ const Invoices = () => {
         if (!invoice) continue;
 
         try {
-          const response = await fetch(`http://35.154.139.118/api/v0/invoices/${invoiceId}/download`, {
+          const response = await fetch(`http://localhost:4000/api/v0/invoices/${invoiceId}/download`, {
             method: 'GET',
           });
 
@@ -140,20 +141,33 @@ const Invoices = () => {
   // Export to Excel
   const handleExportToExcel = () => {
     try {
-      const excelData = invoices.map((invoice, index) => ({
-        'S.No': index + 1,
-        'Invoice Number': invoice.invoiceNumber || 'N/A',
-        'Customer Name': invoice.customerDetails?.name || 'N/A',
-        'Customer Email': invoice.customerDetails?.email || 'N/A',
-        'Customer Phone': invoice.customerDetails?.phone || 'N/A',
-        'Subtotal': invoice.pricing?.subtotal || 0,
-        'Making Charges': invoice.pricing?.totalMakingCharges || 0,
-        'GST': invoice.pricing?.totalGST || 0,
-        'Discount': invoice.pricing?.totalDiscount || 0,
-        'Grand Total': invoice.pricing?.grandTotal || 0,
-        'Status': invoice.status || 'N/A',
-        'Invoice Date': invoice.createdAt ? new Date(invoice.createdAt).toLocaleDateString() : 'N/A',
-      }));
+      const excelData = invoices.map((invoice, index) => {
+        const gstBreakdown = getGSTBreakdown(invoice);
+        const isTN = gstBreakdown.isTamilNadu;
+        const totalGST = gstBreakdown.roundedGST;
+        const shippingCharges = invoice.shippingDetails?.shippingPrice || invoice.shippingDetails?.shippingAmount || 0;
+
+        return {
+          'S.No': index + 1,
+          'Invoice Number': invoice.invoiceNumber || 'N/A',
+          'Customer Name': invoice.customerDetails?.name || 'N/A',
+          'Customer Email': invoice.customerDetails?.email || 'N/A',
+          'Customer Phone': invoice.customerDetails?.phone || 'N/A',
+          'Subtotal': invoice.pricing?.subtotal || 0,
+          'Making Charges': invoice.pricing?.totalMakingCharges || 0,
+          'GST Type': isTN ? 'CGST + SGST' : 'IGST',
+          'CGST (1.5%)': isTN ? gstBreakdown.cgst.toFixed(2) : 'N/A',
+          'SGST (1.5%)': isTN ? gstBreakdown.sgst.toFixed(2) : 'N/A',
+          'IGST (3%)': !isTN ? gstBreakdown.igst.toFixed(2) : 'N/A',
+          'Total GST': totalGST > 0 ? totalGST.toFixed(2) : 0,
+          'Shipping Charges': shippingCharges,
+          'Discount': invoice.pricing?.totalDiscount || 0,
+          'Grand Total': invoice.pricing?.grandTotal || 0,
+          'Total Amount (Grand Total + Shipping)': Math.ceil((invoice.pricing?.grandTotal || 0) + shippingCharges),
+          'Status': invoice.status || 'N/A',
+          'Invoice Date': invoice.createdAt ? new Date(invoice.createdAt).toLocaleDateString() : 'N/A',
+        };
+      });
 
       const ws = XLSX.utils.json_to_sheet(excelData);
       const wb = XLSX.utils.book_new();
@@ -162,7 +176,9 @@ const Invoices = () => {
       const colWidths = [
         { wch: 5 }, { wch: 20 }, { wch: 20 }, { wch: 25 },
         { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 12 },
-        { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 15 }
+        { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
+        { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 15 },
+        { wch: 15 }
       ];
       ws['!cols'] = colWidths;
 
@@ -220,6 +236,53 @@ const Invoices = () => {
       style: 'currency',
       currency: 'INR'
     }).format(amount);
+  };
+
+  // Check if address is in Tamil Nadu
+  const isTamilNadu = (invoice) => {
+    const shippingState = invoice.shippingDetails?.shippingAddress?.state?.toUpperCase() || '';
+    const billingState = invoice.customerDetails?.address?.state?.toUpperCase() || '';
+    const state = shippingState || billingState;
+    return state.includes('TAMIL NADU') || 
+           state.includes('TAMILNADU') || 
+           state.includes(' TN ') || 
+           state.endsWith(' TN');
+  };
+
+  // Calculate GST breakdown
+  const getGSTBreakdown = (invoice) => {
+    const totalGST = invoice.pricing?.totalGST || 0;
+    if (totalGST === 0) return { type: 'N/A', amount: 0, cgst: 0, sgst: 0, igst: 0, roundedGST: 0, roundOff: 0, isTamilNadu: false };
+    
+    const isTN = isTamilNadu(invoice);
+    // Use actual GST value without rounding
+    const actualGST = totalGST;
+    
+    if (isTN) {
+      const cgst = actualGST / 2;
+      const sgst = actualGST / 2;
+      return { 
+        type: 'CGST + SGST', 
+        amount: actualGST, 
+        cgst: cgst, 
+        sgst: sgst, 
+        igst: 0,
+        roundedGST: actualGST,
+        roundOff: 0,
+        isTamilNadu: true
+      };
+    } else {
+      return { 
+        type: 'IGST', 
+        amount: actualGST, 
+        cgst: 0, 
+        sgst: 0, 
+        igst: actualGST,
+        roundedGST: actualGST,
+        roundOff: 0,
+        isTamilNadu: false
+      };
+    }
   };
 
   // Get status badge
@@ -406,7 +469,16 @@ const Invoices = () => {
                         Products
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        GST
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                         Amount
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        Shipping
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        Total Amount
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                         Status
@@ -459,20 +531,56 @@ const Invoices = () => {
                               Total Weight: {invoice.products?.reduce((sum, p) => sum + (p.weight || 0), 0).toFixed(2)}g
                             </div>
                           </div>
+                        </td>     <td className="px-6 py-4">
+                          {(() => {
+                            const gstBreakdown = getGSTBreakdown(invoice);
+                            const isTN = gstBreakdown.isTamilNadu;
+                            const totalGST = gstBreakdown.roundedGST;
+
+                            if (totalGST === 0) {
+                              return <div className="text-xs text-slate-500 dark:text-slate-400">N/A</div>;
+                            }
+
+                            return (
+                              <div className="text-xs text-slate-600 dark:text-slate-400">
+                                {isTN ? (
+                                  <>
+                                    <div className="text-xs">CGST (1.5%): {formatCurrency(gstBreakdown.cgst)}</div>
+                                    <div className="text-xs">SGST (1.5%): {formatCurrency(gstBreakdown.sgst)}</div>
+                                  </>
+                                ) : (
+                                  <div className="text-xs">IGST (3%): {formatCurrency(gstBreakdown.igst)}</div>
+                                )}
+                                <div className="font-semibold mt-1">Total: {formatCurrency(totalGST)}</div>
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="px-6 py-4">
                           <div>
                             <div className="text-sm font-semibold text-slate-900 dark:text-white">
                               ₹{invoice.pricing?.grandTotal?.toLocaleString('en-IN') || 0}
                             </div>
-                            <div className="text-xs text-slate-500 dark:text-slate-400">
+                            {/* <div className="text-xs text-slate-500 dark:text-slate-400">
                               Subtotal: ₹{invoice.pricing?.subtotal?.toLocaleString('en-IN') || 0}
-                            </div>
-                            {(invoice.pricing?.totalGST || 0) > 0 && (
-                              <div className="text-xs text-slate-500 dark:text-slate-400">
-                                GST: ₹{invoice.pricing?.totalGST?.toLocaleString('en-IN')}
-                              </div>
-                            )}
+                            </div> */}
+                          </div>
+                        </td>
+                   
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-slate-600 dark:text-slate-400">
+                            {formatCurrency(invoice.shippingDetails?.shippingPrice || invoice.shippingDetails?.shippingAmount || 0)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm font-semibold text-slate-900 dark:text-white">
+                            {(() => {
+                              const grandTotal = invoice.pricing?.grandTotal || 0;
+                              const shippingCharges = invoice.shippingDetails?.shippingPrice || invoice.shippingDetails?.shippingAmount || 0;
+                              const totalAmount = grandTotal + shippingCharges;
+                              const totalAmountCeil = Math.ceil(totalAmount);
+                              return formatCurrency(totalAmountCeil);
+                            })()}
                           </div>
                         </td>
                         <td className="px-6 py-4">
@@ -506,7 +614,7 @@ const Invoices = () => {
                   <div>
                     <p className="text-xs text-slate-500 dark:text-slate-400">Total Invoices</p>
                     <p className="text-lg font-semibold text-slate-900 dark:text-white">
-                      {invoices.length}
+                      {pagination.total || invoices.length}
                     </p>
                   </div>
                   <div>
@@ -529,6 +637,82 @@ const Invoices = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Pagination */}
+              {pagination.pages > 1 && (
+                <div className="bg-white dark:bg-slate-800 px-4 py-3 flex items-center justify-between border-t border-slate-200 dark:border-slate-700 sm:px-6">
+                  <div className="flex-1 flex justify-between sm:hidden">
+                    <Button
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={pagination.current === 1}
+                      className="btn btn-sm btn-outline"
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, pagination.pages))}
+                      disabled={pagination.current === pagination.pages}
+                      className="btn btn-sm btn-outline"
+                    >
+                      Next
+                    </Button>
+                  </div>
+                  <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        Showing <span className="font-medium">{((pagination.current - 1) * 25) + 1}</span> to{' '}
+                        <span className="font-medium">
+                          {Math.min(pagination.current * 25, pagination.total || 0)}
+                        </span>{' '}
+                        of <span className="font-medium">{pagination.total || 0}</span> results
+                      </p>
+                    </div>
+                    <div>
+                      <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                        <Button
+                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                          disabled={pagination.current === 1}
+                          className="btn btn-sm btn-outline rounded-l-md"
+                        >
+                          Previous
+                        </Button>
+                        {Array.from({ length: Math.min(pagination.pages, 10) }, (_, i) => {
+                          let pageNum;
+                          if (pagination.pages <= 10) {
+                            pageNum = i + 1;
+                          } else if (pagination.current <= 5) {
+                            pageNum = i + 1;
+                          } else if (pagination.current >= pagination.pages - 4) {
+                            pageNum = pagination.pages - 9 + i;
+                          } else {
+                            pageNum = pagination.current - 5 + i;
+                          }
+                          return (
+                            <Button
+                              key={pageNum}
+                              onClick={() => setCurrentPage(pageNum)}
+                              className={`btn btn-sm ${
+                                pagination.current === pageNum
+                                  ? 'btn-primary'
+                                  : 'btn-outline'
+                              }`}
+                            >
+                              {pageNum}
+                            </Button>
+                          );
+                        })}
+                        <Button
+                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, pagination.pages))}
+                          disabled={pagination.current === pagination.pages}
+                          className="btn btn-sm btn-outline rounded-r-md"
+                        >
+                          Next
+                        </Button>
+                      </nav>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>

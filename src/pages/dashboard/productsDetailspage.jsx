@@ -50,19 +50,6 @@ const ProductDetailsPage = () => {
     }
   };
 
-  const handleStatusToggle = async () => {
-    try {
-      await updateProduct({
-        id,
-        active: !product.active
-      }).unwrap();
-      toast.success(`Product ${product.active ? 'deactivated' : 'activated'} successfully`);
-      refetch();
-    } catch (error) {
-      toast.error('Failed to update product status');
-    }
-  };
-
   const handleTrendingToggle = async () => {
     try {
       await updateProduct({
@@ -183,14 +170,6 @@ const ProductDetailsPage = () => {
           >
             <Icon icon="ph:pencil" className="mr-2" />
             Edit
-          </Button>
-          <Button
-            onClick={handleStatusToggle}
-            disabled={isUpdating}
-            className={`btn ${product.active ? 'btn-outline-warning' : 'btn-outline-success'}`}
-          >
-            <Icon icon={product.active ? 'ph:pause' : 'ph:play'} className="mr-2" />
-            {product.active ? 'Deactivate' : 'Activate'}
           </Button>
           <Button
             onClick={handleDeleteProduct}
@@ -406,14 +385,14 @@ const ProductDetailsPage = () => {
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-500 dark:text-gray-400">Total Price</span>
                   <span className="text-sm text-gray-900 dark:text-white line-through">
-                    ₹{product.total.toLocaleString()}
+                    ₹ {product.total.toLocaleString()}
                   </span>
                 </div>
               )}
               <div className="flex justify-between">
                 <span className="text-sm text-gray-500 dark:text-gray-400">GST</span>
                 <span className="text-sm text-gray-900 dark:text-white">
-                  ₹{product.gst || 0}
+                  {product.gst || 0} %
                 </span>
               </div>
               <div className="flex justify-between">
@@ -437,7 +416,7 @@ const ProductDetailsPage = () => {
                         {price.name} {price.weight && `(${price.weight})`}
                       </span>
                       <span className="text-gray-900 dark:text-white">
-                        ₹{price.value?.toLocaleString() || 0}
+                        ₹ {price.value?.toLocaleString() || 0}
                       </span>
                     </div>
                   ))}

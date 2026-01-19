@@ -20,9 +20,9 @@ class SocketService {
     }
 
     // Get base URL - extract from API base URL (remove /api/v0 suffix)
-    // Default to 35.154.139.118 if not set
-    // const apiBaseUrl = process.env.REACT_APP_API_URL || 'http://35.154.139.118/api/v0';
-    const apiBaseUrl = 'http://35.154.139.118/api/v0';
+    // Default to localhost:4000 if not set
+    // const apiBaseUrl = process.env.REACT_APP_API_URL || 'https://www.preciousgoldsmith.net/api/v0';
+    const apiBaseUrl = 'https://www.preciousgoldsmith.net/api/v0';
     const baseUrl = apiBaseUrl.replace('/api/v0', '').replace('/api/v0/', '');
 
     this.socket = io(baseUrl, {

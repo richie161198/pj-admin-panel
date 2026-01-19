@@ -79,6 +79,16 @@ export const productApi = apiSlice.injectEndpoints({
       invalidatesTags: ['Category'],
     }),
 
+    // Update Category
+    updateCategory: builder.mutation({
+      query: ({ id, ...categoryData }) => ({
+        url: `/commerce/updateCategory/${id}`,
+        method: 'PUT',
+        body: categoryData,
+      }),
+      invalidatesTags: ['Category'],
+    }),
+
     // Delete Category
     deleteCategory: builder.mutation({
       query: (id) => ({
@@ -142,6 +152,7 @@ export const {
   useGetAllCategoriesQuery,
   useGetCategoryByIdQuery,
   useCreateCategoryMutation,
+  useUpdateCategoryMutation,
   useDeleteCategoryMutation,
   useGetCategoryWithProductsQuery,
   useAddToCartMutation,

@@ -50,35 +50,66 @@ const Customers = () => {
   const handleDownloadExcel = () => {
     try {
       // Prepare data for Excel export
-      const excelData = customers.map((customer, index) => ({
-        'S.No': index + 1,
-        'Customer ID': customer._id,
-        'Name': customer.name || 'N/A',
-        'Email': customer.email || 'N/A',
-        'Phone': customer.phone || 'N/A',
-        'Status': customer.active ? 'Active' : 'Inactive',
-        'Blocked': customer.isBlocked ? 'Yes' : 'No',
-        'Mobile Verified': customer.mobileVerified ? 'Yes' : 'No',
-        'Active Account': customer.activeAccount ? 'Yes' : 'No',
-        'Balance': customer.balance || '0',
-        'Gold Balance': customer.goldBalance || '0',
-        'App ID': customer.appId || 'N/A',
-        'Referral Code': customer.referralCode || 'N/A',
-        'Role': customer.role || 'N/A',
-        'Last Login': customer.lastLogin ? new Date(customer.lastLogin).toLocaleDateString() : 'Never',
-        'Address': customer.address && customer.address.length > 0 
-          ? (customer.address.find(addr => addr.isDefault)?.street || customer.address[0]?.street || 'N/A')
-          : 'N/A',
-        'City': customer.address && customer.address.length > 0 
-          ? (customer.address.find(addr => addr.isDefault)?.city || customer.address[0]?.city || 'N/A')
-          : 'N/A',
-        'State': customer.address && customer.address.length > 0 
-          ? (customer.address.find(addr => addr.isDefault)?.state || customer.address[0]?.state || 'N/A')
-          : 'N/A',
-        'Pincode': customer.address && customer.address.length > 0 
-          ? (customer.address.find(addr => addr.isDefault)?.pincode || customer.address[0]?.pincode || 'N/A')
-          : 'N/A'
-      }));
+      const excelData = customers.map((customer, index) => {
+        // Format PAN details
+        const panNumber = customer.panDetails?.pan || 'N/A';
+        const panType = customer.panDetails?.type || 'N/A';
+        const panRegisteredName = customer.panDetails?.registered_name || 'N/A';
+        const panValid = customer.panDetails?.valid ? 'Yes' : 'No';
+        
+        // Format bank details - combine all banks into a readable format
+        let bankDetailsText = 'N/A';
+        if (customer.bankDetails && customer.bankDetails.length > 0) {
+          bankDetailsText = customer.bankDetails.map((bank, idx) => {
+            return `Bank ${idx + 1}: ${bank.bank_name || 'N/A'} | Account: ${bank.account_number || 'N/A'} | IFSC: ${bank.ifsc_details?.ifsc || 'N/A'} | Branch: ${bank.branch || 'N/A'}`;
+          }).join('; ');
+        }
+        
+        // Get primary bank details (first bank)
+        const primaryBank = customer.bankDetails && customer.bankDetails.length > 0 ? customer.bankDetails[0] : null;
+        
+        return {
+          'S.No': index + 1,
+          'Customer ID': customer._id,
+          'Name': customer.name || 'N/A',
+          'Email': customer.email || 'N/A',
+          'Phone': customer.phone || 'N/A',
+          'Status': customer.active ? 'Active' : 'Inactive',
+          'Blocked': customer.isBlocked ? 'Yes' : 'No',
+          'Mobile Verified': customer.mobileVerified ? 'Yes' : 'No',
+          'Active Account': customer.activeAccount ? 'Yes' : 'No',
+          'PAN Verified': customer.panVerified ? 'Yes' : 'No',
+          'KYC Verified': customer.kycVerified ? 'Yes' : 'No',
+          'PAN Number': panNumber,
+          'PAN Type': panType,
+          'PAN Registered Name': panRegisteredName,
+          'PAN Valid': panValid,
+          'Primary Bank Name': primaryBank?.bank_name || 'N/A',
+          'Primary Account Number': primaryBank?.account_number || 'N/A',
+          'Primary IFSC': primaryBank?.ifsc_details?.ifsc || 'N/A',
+          'Primary Branch': primaryBank?.branch || 'N/A',
+          'Primary Account Status': primaryBank?.account_status || 'N/A',
+          'All Bank Details': bankDetailsText,
+          'Balance': customer.balance || '0',
+          'Gold Balance': customer.goldBalance || '0',
+          'App ID': customer.appId || 'N/A',
+          'Referral Code': customer.referralCode || 'N/A',
+          'Role': customer.role || 'N/A',
+          'Last Login': customer.lastLogin ? new Date(customer.lastLogin).toLocaleDateString() : 'Never',
+          'Address': customer.address && customer.address.length > 0 
+            ? (customer.address.find(addr => addr.isDefault)?.street || customer.address[0]?.street || 'N/A')
+            : 'N/A',
+          'City': customer.address && customer.address.length > 0 
+            ? (customer.address.find(addr => addr.isDefault)?.city || customer.address[0]?.city || 'N/A')
+            : 'N/A',
+          'State': customer.address && customer.address.length > 0 
+            ? (customer.address.find(addr => addr.isDefault)?.state || customer.address[0]?.state || 'N/A')
+            : 'N/A',
+          'Pincode': customer.address && customer.address.length > 0 
+            ? (customer.address.find(addr => addr.isDefault)?.pincode || customer.address[0]?.pincode || 'N/A')
+            : 'N/A'
+        };
+      });
 
       // Create a new workbook
       const workbook = XLSX.utils.book_new();
@@ -97,6 +128,18 @@ const Customers = () => {
         { wch: 10 }, // Blocked
         { wch: 15 }, // Mobile Verified
         { wch: 15 }, // Active Account
+        { wch: 12 }, // PAN Verified
+        { wch: 12 }, // KYC Verified
+        { wch: 15 }, // PAN Number
+        { wch: 12 }, // PAN Type
+        { wch: 25 }, // PAN Registered Name
+        { wch: 10 }, // PAN Valid
+        { wch: 20 }, // Primary Bank Name
+        { wch: 20 }, // Primary Account Number
+        { wch: 15 }, // Primary IFSC
+        { wch: 20 }, // Primary Branch
+        { wch: 18 }, // Primary Account Status
+        { wch: 50 }, // All Bank Details
         { wch: 12 }, // Balance
         { wch: 15 }, // Gold Balance
         { wch: 20 }, // App ID
@@ -226,7 +269,7 @@ const Customers = () => {
             </thead>
             <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-gray-700">
               {paginatedCustomers.map((customer) => (
-                <tr key={customer._id} className="hover:bg-gray-50 dark:hover:bg-slate-700">
+                <tr   onClick={() => handleViewCustomer(customer._id)} key={customer._id} className="hover:bg-gray-50 dark:hover:bg-slate-700">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10">
@@ -289,19 +332,19 @@ const Customers = () => {
                       >
                         <Icon icon="ph:eye" />
                       </Button>
-                      <Button
+                      {/* <Button
                         onClick={() => navigate(`/customers/${customer._id}/edit`)}
                         className="btn btn-sm btn-outline-secondary"
                       >
                         <Icon icon="ph:pencil" />
-                      </Button>
-                      <Button
+                      </Button> */}
+                      {/* <Button
                         onClick={() => handleDeleteCustomer(customer._id)}
                         disabled={isDeleting}
                         className="btn btn-sm btn-outline-danger"
                       >
                         <Icon icon="ph:trash" />
-                      </Button>
+                      </Button> */}
                     </div>
                   </td>
                 </tr>

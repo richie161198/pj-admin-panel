@@ -25,11 +25,14 @@ const InvestmentSettings = () => {
       price22kt: 0, // 22 karat price per gram
       price18kt: 0, // 18 karat price per gram
       pricePerOunce: 0,
+      premiumPercentage: 9.5, // Premium percentage added to fetched gold price
     },
     silver: {
       enabled: true,
-      pricePerGram: 0,
+      pricePerGram: 0, // Pure silver (100%)
+      price925: 0, // Sterling silver (92.5%) - auto-calculated
       pricePerOunce: 0,
+      premiumPercentage: 9.5, // Premium percentage added to fetched silver price
     },
     taxes: {
       gstRate: 3.0,
@@ -59,33 +62,58 @@ const InvestmentSettings = () => {
   useEffect(() => {
     if (investmentData?.data) {
       console.log('Investment Settings Data:', investmentData.data);
+      const price24kt = investmentData.data.goldPrice24kt || investmentData.data.goldPrice || 0;
+      // Auto-calculate 22kt and 18kt if not provided
+      const price22kt = investmentData.data.goldPrice22kt || parseFloat((price24kt * 0.916).toFixed(2));
+      const price18kt = investmentData.data.goldPrice18kt || parseFloat((price24kt * 0.75).toFixed(2));
+      
       setSettings(prev => ({
         ...prev,
         gold: {
           ...prev.gold,
           enabled: investmentData.data.goldStatus === true || investmentData.data.goldStatus === 'active',
           // Map existing goldPrice to 24kt (for backward compatibility)
-          price24kt: investmentData.data.goldPrice24kt || investmentData.data.goldPrice || 0,
-          price22kt: investmentData.data.goldPrice22kt || 0,
-          price18kt: investmentData.data.goldPrice18kt || 0,
+          price24kt: price24kt,
+          price22kt: price22kt,
+          price18kt: price18kt,
+          premiumPercentage: investmentData.data.goldPremiumPercentage || 9.5,
         },
         silver: {
           ...prev.silver,
           enabled: investmentData.data.silverStatus === true || investmentData.data.silverStatus === 'active',
           pricePerGram: investmentData.data.silverPrice || 0,
+          price925: investmentData.data.silverRate925 || parseFloat(((investmentData.data.silverPrice || 0) * 0.925).toFixed(2)),
+          premiumPercentage: investmentData.data.silverPremiumPercentage || 9.5,
         }
       }));
     }
   }, [investmentData]);
 
   const handleInputChange = (section, field, value) => {
-    setSettings(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        [field]: value
+    setSettings(prev => {
+      const updatedSettings = {
+        ...prev,
+        [section]: {
+          ...prev[section],
+          [field]: value
+        }
+      };
+
+      // Auto-calculate 22kt and 18kt when 24kt is changed
+      if (section === 'gold' && field === 'price24kt') {
+        const price24kt = parseFloat(value) || 0;
+        updatedSettings.gold.price22kt = parseFloat((price24kt * 0.916).toFixed(2));
+        updatedSettings.gold.price18kt = parseFloat((price24kt * 0.75).toFixed(2));
       }
-    }));
+
+      // Auto-calculate 92.5% silver when pure silver price is changed
+      if (section === 'silver' && field === 'pricePerGram') {
+        const pureSilverPrice = parseFloat(value) || 0;
+        updatedSettings.silver.price925 = parseFloat((pureSilverPrice * 0.925).toFixed(2));
+      }
+
+      return updatedSettings;
+    });
   };
 
   const handleToggleInvestmentOption = async (e) => {
@@ -111,7 +139,10 @@ const InvestmentSettings = () => {
         goldRate18kt: settings.gold.price18kt,
         goldStatus: settings.gold.enabled,
         silverRate: settings.silver.pricePerGram,
+        silverRate925: settings.silver.price925,
         silverStatus: settings.silver.enabled,
+        goldPremiumPercentage: settings.gold.premiumPercentage,
+        silverPremiumPercentage: settings.silver.premiumPercentage,
       };
 
       console.log('Saving investment settings:', requestData);
@@ -287,13 +318,14 @@ const InvestmentSettings = () => {
                           <span className="flex items-center gap-2">
                             <Icon icon="ph:medal" className="text-yellow-600" />
                             22 Karat Gold Price (₹/gram)
+                            <span className="text-xs text-gray-500 ml-1"></span>
                           </span>
                         </label>
                         <input
                           type="number"
                           value={settings.gold.price22kt}
-                          onChange={(e) => handleInputChange('gold', 'price22kt', parseFloat(e.target.value) || 0)}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
+                          readOnly
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-slate-800 dark:text-white cursor-not-allowed"
                           step="0.01"
                           placeholder="0.00"
                         />
@@ -304,17 +336,46 @@ const InvestmentSettings = () => {
                           <span className="flex items-center gap-2">
                             <Icon icon="ph:medal" className="text-yellow-700" />
                             18 Karat Gold Price (₹/gram)
+                            <span className="text-xs text-gray-500 ml-1"></span>
                           </span>
                         </label>
                         <input
                           type="number"
                           value={settings.gold.price18kt}
-                          onChange={(e) => handleInputChange('gold', 'price18kt', parseFloat(e.target.value) || 0)}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
+                          readOnly
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-slate-800 dark:text-white cursor-not-allowed"
                           step="0.01"
                           placeholder="0.00"
                         />
                         <p className="text-xs text-gray-500 mt-1">75% purity</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {settings.gold.enabled && (
+                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            <span className="flex items-center gap-2">
+                              {/* <Icon icon="ph:percent" className="text-blue-500" /> */}
+                              Gold Premium (%)
+                            </span>
+                          </label>
+                          <input
+                            type="number"
+                            value={settings.gold.premiumPercentage}
+                            onChange={(e) => handleInputChange('gold', 'premiumPercentage', parseFloat(e.target.value) || 0)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
+                            step="0.1"
+                            min="0"
+                            max="100"
+                            placeholder="9.5"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Premium added to gold price. Default: 9.5%.
+                          </p>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -351,28 +412,67 @@ const InvestmentSettings = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          Silver Price (₹/gram)
+                          <span className="flex items-center gap-2">
+                            <Icon icon="ph:medal" className="text-gray-400" />
+                            Pure Silver Price (₹/gram)
+                          </span>
                         </label>
                         <input
                           type="number"
                           value={settings.silver.pricePerGram}
-                          onChange={(e) => handleInputChange('silver', 'pricePerGram', parseFloat(e.target.value))}
+                          onChange={(e) => handleInputChange('silver', 'pricePerGram', parseFloat(e.target.value) || 0)}
                           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
                           step="0.01"
+                          placeholder="0.00"
                         />
+                        <p className="text-xs text-gray-500 mt-1">Pure silver (100% purity)</p>
                       </div>
-                      {/* <div>
+                      <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                          Price per Ounce (₹)
+                          <span className="flex items-center gap-2">
+                            <Icon icon="ph:medal" className="text-gray-500" />
+                            92.5% Silver Price (₹/gram)
+                            <span className="text-xs text-gray-500 ml-1"></span>
+                          </span>
                         </label>
                         <input
                           type="number"
-                          value={settings.silver.pricePerOunce}
-                          onChange={(e) => handleInputChange('silver', 'pricePerOunce', parseFloat(e.target.value))}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
+                          value={settings.silver.price925}
+                          readOnly
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-slate-800 dark:text-white cursor-not-allowed"
                           step="0.01"
+                          placeholder="0.00"
                         />
-                      </div> */}
+                        <p className="text-xs text-gray-500 mt-1">Sterling silver (92.5% purity)</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {settings.silver.enabled && (
+                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            <span className="flex items-center gap-2">
+                              {/* <Icon icon="ph:percent" className="text-blue-500" /> */}
+                              Silver Premium (%)
+                            </span>
+                          </label>
+                          <input
+                            type="number"
+                            value={settings.silver.premiumPercentage}
+                            onChange={(e) => handleInputChange('silver', 'premiumPercentage', parseFloat(e.target.value) || 0)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
+                            step="0.1"
+                            min="0"
+                            max="100"
+                            placeholder="9.5"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Premium added to silver price. Default: 9.5%.
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>

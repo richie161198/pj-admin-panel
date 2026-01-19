@@ -3,7 +3,7 @@ import { getToken, isTokenExpired, clearAuth } from '@/utils/auth';
 
 const baseQueryWithAuth = async (args, api, extraOptions) => {
   const baseQuery = fetchBaseQuery({
-    baseUrl: "http://35.154.139.118/api/v0",
+    baseUrl: "https://www.preciousgoldsmith.net/api/v0",
     prepareHeaders: (headers, { getState }) => {
       // Get token from localStorage or sessionStorage using utility function
       const token = getToken();
@@ -52,6 +52,6 @@ const baseQueryWithAuth = async (args, api, extraOptions) => {
 export const apiSlice = createApi({
   reducerPath: "api",
   baseQuery: baseQueryWithAuth,
-  tagTypes: ['Auth', 'Admin', 'User', 'Order', 'Customer', 'Product', 'Category', 'Utils', 'Chat', 'Ticket', 'Policy', 'Notification', 'Maintenance', 'ShipmentPricing', 'ReturnRefund', 'Autopay'],
+  tagTypes: ['Auth', 'Admin', 'User', 'Order', 'Customer', 'Product', 'Category', 'Utils', 'Chat', 'Ticket', 'Policy', 'Notification', 'Maintenance', 'ShipmentPricing', 'ReturnRefund', 'Autopay', 'Appointment'],
   endpoints: (builder) => ({}),
 });
