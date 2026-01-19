@@ -3,7 +3,7 @@ import { getToken, isTokenExpired, clearAuth } from './auth';
 
 // Create axios instance
 const api = axios.create({
-  baseURL: 'http://localhost:4000/api/v0',
+  baseURL: 'https://www.preciousgoldsmith.net/api/v0',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',

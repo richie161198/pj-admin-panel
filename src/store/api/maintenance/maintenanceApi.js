@@ -3,7 +3,7 @@ import { getToken, isTokenExpired, clearAuth } from '@/utils/auth';
 
 const baseQueryWithAuth = async (args, api, extraOptions) => {
   const baseQuery = fetchBaseQuery({
-    baseUrl: "http://localhost:4000/api/v0/maintenance",
+    baseUrl: "https://www.preciousgoldsmith.net/api/v0/maintenance",
     prepareHeaders: (headers, { getState }) => {
       // Get token from localStorage or sessionStorage using utility function
       const token = getToken();

@@ -289,8 +289,8 @@ const InvestmentInvoice = () => {
   // Get transaction type badge
   const getTransactionTypeBadge = (type) => {
     const typeConfig = {
-      GOLD: { color: 'warning', text: 'GOLD', icon: '🥇' },
-      SILVER: { color: 'secondary', text: 'SILVER', icon: '🥈' },
+      GOLD: { color: 'warning', text: 'GOLD'},
+      SILVER: { color: 'secondary', text: 'SILVER'},
     };
 
     const config = typeConfig[type] || { color: 'info', text: type, icon: '' };
@@ -623,7 +623,7 @@ const InvestmentInvoice = () => {
                         <td className="px-6 py-4">
                           <div className="space-y-1">
                             <div className="flex gap-2">
-                              {getOrderTypeBadge(invoice.orderType)}
+                              {getOrderTypeBadge(invoice.orderType)}-
                               {getTransactionTypeBadge(invoice.transactionType)}
                             </div>
                           </div>
