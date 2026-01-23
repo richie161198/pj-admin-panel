@@ -252,8 +252,8 @@ const AdminProfilePage = () => {
   const tabs = [
     { id: 'profile', label: 'Profile', icon: 'ph:user' },
     { id: 'security', label: 'Security', icon: 'ph:shield-check' },
-    { id: 'notifications', label: 'Notifications', icon: 'ph:bell' },
-    { id: 'preferences', label: 'Preferences', icon: 'ph:gear' },
+    // { id: 'notifications', label: 'Notifications', icon: 'ph:bell' },
+    // { id: 'preferences', label: 'Preferences', icon: 'ph:gear' },
     // { id: 'billing', label: 'Billing', icon: 'ph:credit-card' },
     // { id: 'api', label: 'API Keys', icon: 'ph:key' }
   ];
