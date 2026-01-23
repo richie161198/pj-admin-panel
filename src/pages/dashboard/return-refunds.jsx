@@ -375,24 +375,65 @@ const ReturnRefunds = () => {
                       {getRequestTypeBadge(request.requestType)}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
-                      <div className="space-y-1">
+                      <div className="space-y-2">
                         {request.items?.map((item, idx) => (
-                          <div key={idx} className="flex items-center space-x-2">
-                            {item.productId?.images?.[0] && (
-                              <img
-                                src={item.productId.images[0]}
-                                alt={item.productId.name}
-                                className="w-8 h-8 rounded object-cover"
-                              />
-                            )}
-                            <div>
-                              <div className="text-xs font-medium">
-                                {item.productId?.name || 'Product'}
-                              </div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400">
-                                Qty: {item.qty} | Reason: {item.reason}
+                          <div key={idx} className="border-b border-gray-200 dark:border-gray-700 pb-2 last:border-b-0">
+                            <div className="flex items-center space-x-2 mb-1">
+                              {item.productId?.images?.[0] && (
+                                <img
+                                  src={item.productId.images[0]}
+                                  alt={item.productId.name}
+                                  className="w-8 h-8 rounded object-cover"
+                                />
+                              )}
+                              <div className="flex-1">
+                                <div className="text-xs font-medium">
+                                  {item.productId?.name || 'Product'}
+                                </div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                  Qty: {item.qty} | Reason: {item.reason}
+                                </div>
+                                {item.note && (
+                                  <div className="text-xs text-gray-600 dark:text-gray-300 mt-1 italic">
+                                    Note: {item.note}
+                                  </div>
+                                )}
                               </div>
                             </div>
+                            {/* Display media (images/videos) */}
+                            {item.mediaUrls && item.mediaUrls.length > 0 && (
+                              <div className="mt-2">
+                                <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                  Evidence ({item.mediaUrls.length}):
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                  {item.mediaUrls.map((mediaUrl, mediaIdx) => {
+                                    const isVideo = mediaUrl.toLowerCase().includes('.mp4') ||
+                                      mediaUrl.toLowerCase().includes('.mov') ||
+                                      mediaUrl.toLowerCase().includes('.webm') ||
+                                      mediaUrl.toLowerCase().includes('/video/');
+                                    
+                                    return (
+                                      <div key={mediaIdx} className="relative">
+                                        {isVideo ? (
+                                          <div className="w-20 h-20 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden flex items-center justify-center cursor-pointer"
+                                            onClick={() => window.open(mediaUrl, '_blank')}>
+                                            <Icon icon="heroicons:play" className="text-2xl text-gray-600 dark:text-gray-300" />
+                                          </div>
+                                        ) : (
+                                          <img
+                                            src={mediaUrl}
+                                            alt={`Evidence ${mediaIdx + 1}`}
+                                            className="w-20 h-20 rounded object-cover cursor-pointer hover:opacity-80"
+                                            onClick={() => window.open(mediaUrl, '_blank')}
+                                          />
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>

@@ -128,6 +128,29 @@ export const authApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ['Category'],
     }),
+    // Review endpoints
+    getProductReviews: builder.query({
+      query: ({ productId, page = 1, limit = 10, sort = 'newest' }) => 
+        `/reviews/product/${productId}?page=${page}&limit=${limit}&sort=${sort}`,
+      providesTags: (result, error, { productId }) => [{ type: 'Review', id: productId }],
+    }),
+    getAllReviews: builder.query({
+      query: ({ page = 1, limit = 20, productId, userId, rating } = {}) => {
+        let url = `/reviews/admin/all?page=${page}&limit=${limit}`;
+        if (productId) url += `&productId=${productId}`;
+        if (userId) url += `&userId=${userId}`;
+        if (rating) url += `&rating=${rating}`;
+        return url;
+      },
+      providesTags: ['Review'],
+    }),
+    deleteReview: builder.mutation({
+      query: (reviewId) => ({
+        url: `/reviews/admin/${reviewId}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ['Review', 'Product'],
+    }),
   }),
 });
 
@@ -150,5 +173,8 @@ export const {
   useGetCategoryByIdQuery,
   useCreateCategoryMutation,
   useUpdateCategoryMutation,
-  useDeleteCategoryMutation
+  useDeleteCategoryMutation,
+  useGetProductReviewsQuery,
+  useGetAllReviewsQuery,
+  useDeleteReviewMutation
 } = authApi;

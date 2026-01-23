@@ -78,11 +78,12 @@ const Banners = () => {
 
   // Form state
   const [formData, setFormData] = useState({
-    title: '',
     position: 0,
     isActive: true,
     category: ''
   });
+  
+  const [positionError, setPositionError] = useState('');
 
   // Fetch banners
   const fetchBanners = async () => {
@@ -138,6 +139,16 @@ const Banners = () => {
     setImagePreview(url);
   };
 
+  // Check if position is already taken for the category
+  const checkPositionExists = (category, position) => {
+    if (!category || !position) return false;
+    return banners.some(banner => 
+      banner.category === category && 
+      banner.position === Number(position) &&
+      banner._id !== editingBanner?._id
+    );
+  };
+
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -146,6 +157,19 @@ const Banners = () => {
       alert('Please choose an image');
       return;
     }
+    
+    if (!formData.category) {
+      alert('Please select a category');
+      return;
+    }
+    
+    // Check if position is already taken
+    if (checkPositionExists(formData.category, formData.position)) {
+      setPositionError(`Position ${formData.position} is already set for category "${formData.category}". Please change the position.`);
+      return;
+    }
+    
+    setPositionError('');
     setUploading(true);
     try {
       // 1) upload image
@@ -159,10 +183,9 @@ const Banners = () => {
 
       // 2) save banner
       const payload = {
-        title: formData.title,
         position: Number(formData.position) || 0,
         isActive: !!formData.isActive,
-        category: formData.category || undefined,
+        category: formData.category,
         imageUrl: img.url,
         publicId: img.public_id,
         imageWidth: img.width,
@@ -178,7 +201,12 @@ const Banners = () => {
       await fetchBanners();
     } catch (error) {
       console.error('Error saving banner:', error);
-      alert(error?.response?.data?.message || error.message || 'Failed to save');
+      const errorMessage = error?.response?.data?.message || error.message || 'Failed to save';
+      if (errorMessage.includes('position') || errorMessage.includes('Position')) {
+        setPositionError(errorMessage);
+      } else {
+        alert(errorMessage);
+      }
     } finally {
       setUploading(false);
     }
@@ -187,7 +215,6 @@ const Banners = () => {
   // Reset form
   const resetForm = () => {
     setFormData({
-      title: '',
       position: 0,
       isActive: true,
       category: ''
@@ -195,6 +222,7 @@ const Banners = () => {
     setImagePreview(null);
     setImageFile(null);
     setEditingBanner(null);
+    setPositionError('');
   };
 
   // Group banners by category
@@ -241,26 +269,13 @@ const Banners = () => {
   const openEditModal = (banner) => {
     setEditingBanner(banner);
     setFormData({
-      title: banner.title,
-      description: banner.description || '',
-      link: banner.link || '',
-      linkText: banner.linkText || '',
       position: banner.position,
       isActive: banner.isActive,
-      startDate: banner.startDate ? new Date(banner.startDate).toISOString().split('T')[0] : '',
-      endDate: banner.endDate ? new Date(banner.endDate).toISOString().split('T')[0] : '',
-      targetAudience: banner.targetAudience,
       category: banner.category || '',
-      tags: banner.tags ? banner.tags.join(', ') : '',
-      imageUrl: banner.imageUrl || '',
-      publicId: banner.publicId || '',
-      imageWidth: banner.imageWidth || '',
-      imageHeight: banner.imageHeight || '',
-      imageFormat: banner.imageFormat || '',
-      imageBytes: banner.imageBytes || ''
     });
     setImagePreview(banner.imageUrl);
     setShowModal(true);
+    setPositionError('');
   };
 
   // Delete banner
@@ -378,33 +393,36 @@ const Banners = () => {
           </div>
           <form onSubmit={handleSubmit} className="space-y-3">
             <div>
-              <label className="block text-sm mb-1">Title (optional)</label>
-              <Textinput name="title" value={formData.title} onChange={handleInputChange} placeholder="Banner title" />
-            </div>
-            <div>
-              <label className="block text-sm mb-1">Position</label>
-              <Textinput type="number" name="position" value={formData.position} onChange={handleInputChange} />
-            </div>
-            <div>
-              <label className="block text-sm mb-1">Category</label>
-              <Textinput 
-                name="category" 
-                value={formData.category} 
+              <label className="block text-sm mb-1">Category <span className="text-red-500">*</span></label>
+              <Select
+                name="category"
+                value={formData.category}
                 onChange={handleInputChange}
-                placeholder="Enter category name (e.g., main, top-collections, ecommerce)"
-                list="category-suggestions"
+                required
+              >
+                <option value="">Select Category</option>
+                <option value="main">Main</option>
+                <option value="offer&deals">Offer & Deals</option>
+                <option value="ecommerce">Ecommerce</option>
+                <option value="top-collections">Top Collections</option>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm mb-1">Position <span className="text-red-500">*</span></label>
+              <Textinput 
+                type="number" 
+                name="position" 
+                value={formData.position} 
+                onChange={(e) => {
+                  handleInputChange(e);
+                  setPositionError(''); // Clear error when position changes
+                }}
+                min="0"
+                required
               />
-              <datalist id="category-suggestions">
-                {bannerCategories.map((category) => (
-                  <option key={category} value={category} />
-                ))}
-                <option value="main" />
-                <option value="top-collections" />
-                <option value="ecommerce" />
-                <option value="offer&deals" />
-                <option value="home" />
-                <option value="featured" />
-              </datalist>
+              {positionError && (
+                <p className="text-red-500 text-xs mt-1">{positionError}</p>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Switch name="isActive" checked={formData.isActive} onChange={handleInputChange} />
@@ -471,8 +489,9 @@ const Banners = () => {
               return (
                 <div key={category} className="space-y-4">
                   <div className="flex items-center justify-between border-b pb-2">
-                    <h2 className="text-xl font-bold text-gray-900">
-                      {category}
+                    <h2 className="text-lg font-bold text-gray-900 uppercase">
+  {category}
+
                       <span className="ml-2 text-sm font-normal text-gray-500">
                         ({categoryBanners.length} {categoryBanners.length === 1 ? 'banner' : 'banners'})
                       </span>
@@ -484,7 +503,7 @@ const Banners = () => {
             <div className="relative">
               <img
                 src={banner.imageUrl}
-                alt={banner.title}
+                alt={banner.category || 'Banner'}
                 className="w-full h-48 object-cover"
               />
               <div className="absolute top-2 right-2">
@@ -499,7 +518,7 @@ const Banners = () => {
             </div>
             
             <div className="p-4">
-                          <h3 className="font-semibold text-lg text-gray-900 mb-2">{banner.title || 'Untitled'}</h3>
+                          {/* <h3 className="font-semibold uppercase text-lg text-gray-900 mb-2">{banner.category || 'Uncategorized'}</h3> */}
               {banner.description && (
                 <p className="text-gray-600 text-sm mb-3 line-clamp-2">{banner.description}</p>
               )}
@@ -515,7 +534,7 @@ const Banners = () => {
                   <span className="capitalize">{banner.targetAudience}</span>
                 </div>
                             )}
-                  <div className="flex justify-between">
+                  {/* <div className="flex justify-between">
                     <span>Category:</span>
                               <span className="font-medium">{category}</span>
                   </div>
@@ -526,7 +545,7 @@ const Banners = () => {
                 <div className="flex justify-between">
                   <span>Clicks:</span>
                   <span>{banner.clicks || 0}</span>
-                </div>
+                </div> */}
               </div>
 
               <div className="flex gap-2 mt-4">

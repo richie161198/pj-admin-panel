@@ -38,11 +38,34 @@ const ProductForm = ({ product, onClose, isEdit = false }) => {
   const [uploadImage, { isLoading: isUploading }] = useUploadMultipleImagesMutation();
   const { data: categoriesResponse } = useGetAllCategoriesQuery();
 
-const categories =
-  categoriesResponse?.data?.categories ??
-  categoriesResponse?.categories ??
-  categoriesResponse?.data ??
-  [];
+  // Extract categories from API response - handle all possible response structures
+  const categories = React.useMemo(() => {
+    if (!categoriesResponse) return [];
+    
+    // RTK Query wraps response in 'data', so check categoriesResponse.data first
+    if (categoriesResponse.data) {
+      // Backend returns: { status: true, count: X, categories: [...] }
+      if (Array.isArray(categoriesResponse.data.categories)) {
+        return categoriesResponse.data.categories;
+      }
+      // If data itself is an array
+      if (Array.isArray(categoriesResponse.data)) {
+        return categoriesResponse.data;
+      }
+    }
+    
+    // Direct categories array
+    if (Array.isArray(categoriesResponse.categories)) {
+      return categoriesResponse.categories;
+    }
+    
+    // Direct array response
+    if (Array.isArray(categoriesResponse)) {
+      return categoriesResponse;
+    }
+    
+    return [];
+  }, [categoriesResponse]);
 
   useEffect(() => {
     if (isEdit && product) {

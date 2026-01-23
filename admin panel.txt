@@ -1,0 +1,20 @@
+email id: Chandran@preciousjewels.com
+password: Test@1234
+
+
+deploy cmd
+
+rm -r pj-admin-panel
+git clone https://github.com/richie161198/pj-admin-panel.git
+
+cd /var/www/html/
+ rm -r assets/
+ rm -r index.html 
+ ls
+
+
+ cp -r /opt/pj-admin/pj-admin-panel/dist/assets /var/www/html/
+
+ cp /opt/pj-admin/pj-admin-panel/dist/index.html /var/www/html/
+
+

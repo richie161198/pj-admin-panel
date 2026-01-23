@@ -109,8 +109,26 @@ const Orders = () => {
         'Shipping Charges': order.shippingDetails?.shippingPrice || order.shippingDetails?.shippingAmount || 0,
         'Total Amount (Grand Total + Shipping)': Math.ceil((order.pricing?.grandTotal || order.totalAmount || 0) + (order.shippingDetails?.shippingPrice || order.shippingDetails?.shippingAmount || 0)),
         'Items Count': order.items?.length || 0,
-        'Created At': order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A',
-        'Updated At': order.updatedAt ? new Date(order.updatedAt).toLocaleDateString() : 'N/A'
+        'Created At': order.createdAt
+          ? new Date(order.createdAt).toLocaleString('en-IN', {
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true,
+            })
+          : 'N/A',
+        'Updated At': order.updatedAt
+          ? new Date(order.updatedAt).toLocaleString('en-IN', {
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true,
+            })
+          : 'N/A'
       }));
 
       // Create a new workbook
@@ -424,7 +442,16 @@ const Orders = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                    {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}
+                    {order.createdAt
+                      ? new Date(order.createdAt).toLocaleString('en-IN', {
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          hour12: true,
+                        })
+                      : 'N/A'}
                   </td>
                   {/* <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end space-x-2">

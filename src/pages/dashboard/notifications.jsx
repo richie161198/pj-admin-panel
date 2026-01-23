@@ -67,9 +67,6 @@ const NotificationsPage = () => {
     targetUsers: [],
     targetSegment: 'all_users',
     imageUrl: '',
-    actionUrl: '',
-    actionType: 'open_app',
-    screenName: '',
     scheduledAt: '',
     metadata: {}
   });
@@ -170,9 +167,10 @@ const NotificationsPage = () => {
       return;
     }
     
-    // Include selected users in the form data
+    // Convert scheduledAt from local time to UTC ISO string
     const notificationData = {
       ...formData,
+      scheduledAt: formData.scheduledAt ? convertLocalToUTC(formData.scheduledAt) : null,
       targetUsers: formData.targetAudience === 'specific_users' ? selectedUsers : []
     };
     
@@ -199,9 +197,14 @@ const NotificationsPage = () => {
   const handleUpdateNotification = async (e) => {
     e.preventDefault();
     try {
+      // Convert scheduledAt from local time to UTC ISO string
+      const updateData = {
+        ...formData,
+        scheduledAt: formData.scheduledAt ? convertLocalToUTC(formData.scheduledAt) : null
+      };
       const response = await updateNotification({
         id: selectedNotification._id,
-        ...formData
+        ...updateData
       }).unwrap();
       if (response.status) {
         toast.success('Notification updated successfully');
@@ -249,6 +252,29 @@ const NotificationsPage = () => {
     }
   };
 
+  // Helper function to convert UTC date to local datetime-local format
+  const formatDateForInput = (utcDateString) => {
+    if (!utcDateString) return '';
+    const date = new Date(utcDateString);
+    // Get local date components
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
+  // Helper function to convert local datetime-local format to UTC ISO string
+  const convertLocalToUTC = (localDateTimeString) => {
+    if (!localDateTimeString) return null;
+    // Create a date object from the local datetime string
+    // This treats the input as local time
+    const localDate = new Date(localDateTimeString);
+    // Return ISO string which is in UTC
+    return localDate.toISOString();
+  };
+
   const handleEdit = (notification) => {
     setSelectedNotification(notification);
     setFormData({
@@ -260,10 +286,7 @@ const NotificationsPage = () => {
       targetUsers: notification.targetUsers || [],
       targetSegment: notification.targetSegment,
       imageUrl: notification.imageUrl || '',
-      actionUrl: notification.actionUrl || '',
-      actionType: notification.actionType,
-      screenName: notification.screenName || '',
-      scheduledAt: notification.scheduledAt ? new Date(notification.scheduledAt).toISOString().slice(0, 16) : '',
+      scheduledAt: formatDateForInput(notification.scheduledAt),
       metadata: notification.metadata || {}
     });
     // Set image preview if imageUrl exists
@@ -287,9 +310,6 @@ const NotificationsPage = () => {
       targetUsers: [],
       targetSegment: 'all_users',
       imageUrl: '',
-      actionUrl: '',
-      actionType: 'open_app',
-      screenName: '',
       scheduledAt: '',
       metadata: {}
     });
@@ -784,67 +804,18 @@ const NotificationsPage = () => {
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Action Type
-                    </label>
-                    <select
-                      name="actionType"
-                      value={formData.actionType}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
-                    >
-                      <option value="open_app">Open App</option>
-                      <option value="open_url">Open URL</option>
-                      <option value="open_screen">Open Screen</option>
-                      <option value="none">None</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Scheduled At
-                    </label>
-                    <input
-                      type="datetime-local"
-                      name="scheduledAt"
-                      value={formData.scheduledAt}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Scheduled At
+                  </label>
+                  <input
+                    type="datetime-local"
+                    name="scheduledAt"
+                    value={formData.scheduledAt}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
+                  />
                 </div>
-
-                {formData.actionType === 'open_url' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Action URL
-                    </label>
-                    <input
-                      type="url"
-                      name="actionUrl"
-                      value={formData.actionUrl}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
-                    />
-                  </div>
-                )}
-
-                {formData.actionType === 'open_screen' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Screen Name
-                    </label>
-                    <input
-                      type="text"
-                      name="screenName"
-                      value={formData.screenName}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
-                    />
-                  </div>
-                )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

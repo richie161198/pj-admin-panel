@@ -50,7 +50,7 @@ const Invoices = () => {
     try {
       toast.info('Preparing invoice for download...');
 
-      const response = await fetch(`http://localhost:4000/api/v0/invoices/${invoiceId}/download`, {
+      const response = await fetch(`https://www.preciousgoldsmith.net/api/v0/invoices/${invoiceId}/download`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -94,7 +94,7 @@ const Invoices = () => {
         if (!invoice) continue;
 
         try {
-          const response = await fetch(`http://localhost:4000/api/v0/invoices/${invoiceId}/download`, {
+          const response = await fetch(`https://www.preciousgoldsmith.net/api/v0/invoices/${invoiceId}/download`, {
             method: 'GET',
           });
 

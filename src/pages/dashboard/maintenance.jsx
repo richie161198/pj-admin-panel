@@ -2,15 +2,36 @@ import React, { useState, useEffect } from 'react';
 import { useGetMaintenanceStatusQuery, useUpdateMaintenanceStatusMutation } from '@/store/api/maintenance/maintenanceApi';
 import { toast } from 'react-toastify';
 
+// Helper to convert UTC date string from backend to local datetime-local input value
+const formatDateForInput = (utcDateString) => {
+  if (!utcDateString) return '';
+  const date = new Date(utcDateString);
+  if (Number.isNaN(date.getTime())) return '';
+  // Adjust by timezone offset so toISOString returns local time
+  const tzOffset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - tzOffset * 60000);
+  return localDate.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:mm"
+};
+
+// Helper to convert local datetime-local value to UTC ISO string for backend
+const convertLocalToUTC = (localDateTimeValue) => {
+  if (!localDateTimeValue) return null;
+  const localDate = new Date(localDateTimeValue);
+  if (Number.isNaN(localDate.getTime())) return null;
+  // new Date(...) parses the datetime-local string as local time.
+  // Calling toISOString() converts that local time to the correct UTC instant.
+  return localDate.toISOString();
+};
+
 const MaintenancePage = () => {
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
   const [maintenanceMessage, setMaintenanceMessage] = useState('');
   const [maintenanceTitle, setMaintenanceTitle] = useState('');
   const [estimatedEndTime, setEstimatedEndTime] = useState('');
   const [maintenanceType, setMaintenanceType] = useState('emergency');
-  const [affectedServices, setAffectedServices] = useState(['all']);
-  const [allowedIPs, setAllowedIPs] = useState('');
-  const [allowedUserIds, setAllowedUserIds] = useState('');
+  const [affectedServices, setAffectedServices] = useState(['all']); // kept for backwards-compat, not shown in UI
+  const [allowedIPs, setAllowedIPs] = useState(''); // kept but hidden
+  const [allowedUserIds, setAllowedUserIds] = useState(''); // kept but hidden
 
   const { data: maintenanceData, isLoading, refetch } = useGetMaintenanceStatusQuery();
   const [updateMaintenance, { isLoading: isUpdating }] = useUpdateMaintenanceStatusMutation();
@@ -21,11 +42,52 @@ const MaintenancePage = () => {
       setIsMaintenanceMode(data.isMaintenanceMode || false);
       setMaintenanceMessage(data.maintenanceMessage || '');
       setMaintenanceTitle(data.maintenanceTitle || '');
-      setEstimatedEndTime(data.estimatedEndTime ? new Date(data.estimatedEndTime).toISOString().slice(0, 16) : '');
+      // Convert UTC from backend to local value for datetime-local input
+      setEstimatedEndTime(formatDateForInput(data.estimatedEndTime));
       setMaintenanceType(data.maintenanceType || 'emergency');
+      // The following advanced fields are no longer exposed in the UI,
+      // but we keep state wiring for compatibility if backend returns them.
       setAffectedServices(data.affectedServices || ['all']);
       setAllowedIPs(data.allowedIPs ? data.allowedIPs.join(', ') : '');
       setAllowedUserIds(data.allowedUserIds ? data.allowedUserIds.join(', ') : '');
+
+      // Auto-disable maintenance on page refresh if end time has passed
+      try {
+        if (data.isMaintenanceMode && data.estimatedEndTime) {
+          const endTime = new Date(data.estimatedEndTime);
+          const now = new Date();
+
+          if (!Number.isNaN(endTime.getTime()) && endTime.getTime() <= now.getTime()) {
+            const autoUpdateData = {
+              isMaintenanceMode: false,
+              maintenanceMessage: data.maintenanceMessage || '',
+              maintenanceTitle: data.maintenanceTitle || '',
+              estimatedEndTime: null,
+              maintenanceType: data.maintenanceType || 'emergency',
+            };
+
+            console.log('Auto-disabling maintenance because estimatedEndTime has passed:', {
+              endTime,
+              now,
+              autoUpdateData,
+            });
+
+            // Fire and forget; UI state will refresh via refetch
+            updateMaintenance(autoUpdateData)
+              .unwrap()
+              .then((response) => {
+                console.log('Auto-disable maintenance response:', response);
+                setIsMaintenanceMode(false);
+                refetch();
+              })
+              .catch((error) => {
+                console.error('Error auto-disabling maintenance:', error);
+              });
+          }
+        }
+      } catch (err) {
+        console.error('Error in auto-disable maintenance check:', err);
+      }
     }
   }, [maintenanceData]);
 
@@ -45,11 +107,10 @@ const MaintenancePage = () => {
         isMaintenanceMode,
         maintenanceMessage,
         maintenanceTitle,
-        estimatedEndTime: estimatedEndTime ? new Date(estimatedEndTime).toISOString() : null,
-        maintenanceType,
-        affectedServices,
-        allowedIPs: allowedIPs ? allowedIPs.split(',').map(ip => ip.trim()).filter(ip => ip) : [],
-        allowedUserIds: allowedUserIds ? allowedUserIds.split(',').map(id => id.trim()).filter(id => id) : []
+        // Convert local datetime-local input to UTC ISO string for backend
+        estimatedEndTime: estimatedEndTime ? convertLocalToUTC(estimatedEndTime) : null,
+        maintenanceType
+        // Advanced controls (affectedServices, allowedIPs, allowedUserIds) are no longer editable from the UI.
       };
 
       console.log('Updating maintenance with data:', updateData);
@@ -87,8 +148,8 @@ const MaintenancePage = () => {
         <div className="bg-white rounded-lg shadow-lg p-6">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">System Maintenance</h1>
-              <p className="text-gray-600 mt-1">Control system maintenance mode and settings</p>
+              <h1 className="text-2xl font-bold text-gray-900">App Maintenance</h1>
+              <p className="text-gray-600 mt-1">Control app maintenance mode and settings</p>
             </div>
             <div className={`px-4 py-2 rounded-full text-sm font-medium ${
               isMaintenanceMode 
@@ -104,8 +165,8 @@ const MaintenancePage = () => {
             <div className="bg-gray-50 p-4 rounded-lg">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Maintenance Mode</h3>
-                  <p className="text-sm text-gray-600">Enable or disable system maintenance mode</p>
+                  <h3 className="text-lg font-semibold text-gray-900">App Maintenance Mode</h3>
+                  <p className="text-sm text-gray-600">Enable or disable app maintenance mode</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -153,7 +214,7 @@ const MaintenancePage = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Maintenance Message
+                   Maintenance Message
                   </label>
                   <textarea
                     value={maintenanceMessage}
@@ -174,54 +235,6 @@ const MaintenancePage = () => {
                     onChange={(e) => setEstimatedEndTime(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
-                </div>
-
-                {/* Affected Services */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Affected Services
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {['all', 'api', 'mobile', 'web'].map((service) => (
-                      <label key={service} className="flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={affectedServices.includes(service)}
-                          onChange={() => handleServiceChange(service)}
-                          className="mr-2"
-                        />
-                        <span className="text-sm capitalize">{service}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Advanced Settings */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Allowed IPs (comma-separated)
-                    </label>
-                    <input
-                      type="text"
-                      value={allowedIPs}
-                      onChange={(e) => setAllowedIPs(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="192.168.1.1, 10.0.0.1"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Allowed User IDs (comma-separated)
-                    </label>
-                    <input
-                      type="text"
-                      value={allowedUserIds}
-                      onChange={(e) => setAllowedUserIds(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="user1, user2, user3"
-                    />
-                  </div>
                 </div>
               </div>
             )}

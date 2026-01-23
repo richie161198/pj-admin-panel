@@ -56,7 +56,7 @@ const OrderDetails = () => {
       const token = getToken();
       // Query all invoices and find the one matching this order
       const response = await fetch(
-        `http://localhost:4000/api/v0/invoices?limit=1000`,
+        `https://www.preciousgoldsmith.net/api/v0/invoices?limit=1000`,
         {
           method: 'GET',
           headers: {
@@ -96,7 +96,7 @@ const OrderDetails = () => {
     try {
       const token = getToken();
       const response = await fetch(
-        `http://localhost:4000/api/v0/shipments/bvc/track/order`,
+        `https://www.preciousgoldsmith.net/api/v0/shipments/bvc/track/order`,
         {
           method: 'POST',
           headers: {
@@ -255,7 +255,7 @@ const OrderDetails = () => {
       }
 
       const response = await fetch(
-        `http://localhost:4000/api/v0/invoices/order/${order.orderCode}/download`,
+        `https://www.preciousgoldsmith.net/api/v0/invoices/order/${order.orderCode}/download`,
         {
           method: 'GET',
           headers: headers,
@@ -546,9 +546,9 @@ const OrderDetails = () => {
                   <div className="font-medium text-gray-900 dark:text-gray-100">
                     {order.user?.name || 'N/A'}
                   </div>
-                  <div className="text-xs text-gray-500">
+                  {/* <div className="text-xs text-gray-500">
                     {order.user?.id || 'N/A'}
-                  </div>
+                  </div> */}
                 </div>
               </div>
 

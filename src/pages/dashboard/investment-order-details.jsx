@@ -289,7 +289,7 @@ const InvestmentOrderDetails = () => {
           </Card>
 
           {/* Actions */}
-          <Card title="Actions">
+          {/* <Card title="Actions">
             <div className="space-y-3">
               <Button
                 onClick={() => navigate(`/invoice/investment/${id}`)}
@@ -313,7 +313,7 @@ const InvestmentOrderDetails = () => {
                 Print Order
               </Button>
             </div>
-          </Card>
+          </Card> */}
         </div>
       </div>
     </div>

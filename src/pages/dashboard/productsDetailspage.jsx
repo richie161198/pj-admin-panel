@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useGetProductByIdQuery, useUpdateProductMutation, useDeleteProductMutation } from '@/store/api/auth/authApiSlice';
+import { 
+  useGetProductByIdQuery, 
+  useUpdateProductMutation, 
+  useDeleteProductMutation,
+  useGetProductReviewsQuery,
+  useDeleteReviewMutation
+} from '@/store/api/auth/authApiSlice';
 import Button from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
 import { toast } from 'react-toastify';
@@ -14,6 +20,22 @@ const ProductDetailsPage = () => {
   const { data: productResponse, isLoading, error, refetch } = useGetProductByIdQuery(id);
   const [updateProduct, { isLoading: isUpdating }] = useUpdateProductMutation();
   const [deleteProduct, { isLoading: isDeleting }] = useDeleteProductMutation();
+  const { data: reviewsResponse, isLoading: isLoadingReviews, refetch: refetchReviews } = useGetProductReviewsQuery(
+    { productId: id, page: 1, limit: 20, sort: 'newest' },
+    { skip: !id }
+  );
+  const [deleteReview, { isLoading: isDeletingReview }] = useDeleteReviewMutation();
+
+  // Helper function to check if URL is a video
+  const isVideoUrl = (url) => {
+    if (!url || typeof url !== 'string') return false;
+    const lowerUrl = url.toLowerCase();
+    return lowerUrl.includes('.mp4') ||
+           lowerUrl.includes('.webm') ||
+           lowerUrl.includes('.mov') ||
+           lowerUrl.includes('/video/') ||
+           lowerUrl.includes('video/upload');
+  };
 
   // Debug API call
   console.log('API Call Debug:', {
@@ -193,35 +215,61 @@ const ProductDetailsPage = () => {
             </h3>
             {product.images && product.images.length > 0 ? (
               <div className="space-y-4">
-                {/* Main Image */}
+                {/* Main Image/Video */}
                 <div className="aspect-square bg-gray-100 dark:bg-slate-700 rounded-lg overflow-hidden">
-                  <img
-                    src={product.images[selectedImageIndex]}
-                    alt={product.name}
-                    className="w-full h-full object-cover"
-                  />
+                  {isVideoUrl(product.images[selectedImageIndex]) ? (
+                    <video
+                      src={product.images[selectedImageIndex]}
+                      controls
+                      className="w-full h-full object-cover"
+                      playsInline
+                    />
+                  ) : (
+                    <img
+                      src={product.images[selectedImageIndex]}
+                      alt={product.name}
+                      className="w-full h-full object-cover"
+                    />
+                  )}
                 </div>
                 
-                {/* Thumbnail Images */}
+                {/* Thumbnail Images/Videos */}
                 {product.images.length > 1 && (
                   <div className="flex space-x-2 overflow-x-auto">
-                    {product.images.map((image, index) => (
-                      <button
-                        key={index}
-                        onClick={() => setSelectedImageIndex(index)}
-                        className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 ${
-                          selectedImageIndex === index
-                            ? 'border-blue-500'
-                            : 'border-gray-200 dark:border-gray-600'
-                        }`}
-                      >
-                        <img
-                          src={image}
-                          alt={`${product.name} ${index + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                      </button>
-                    ))}
+                    {product.images.map((media, index) => {
+                      const isVideo = isVideoUrl(media);
+                      return (
+                        <button
+                          key={index}
+                          onClick={() => setSelectedImageIndex(index)}
+                          className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 relative ${
+                            selectedImageIndex === index
+                              ? 'border-blue-500'
+                              : 'border-gray-200 dark:border-gray-600'
+                          }`}
+                        >
+                          {isVideo ? (
+                            <>
+                              <video
+                                src={media}
+                                className="w-full h-full object-cover"
+                                muted
+                                playsInline
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
+                                <Icon icon="ph:play-fill" className="text-white text-2xl" />
+                              </div>
+                            </>
+                          ) : (
+                            <img
+                              src={media}
+                              alt={`${product.name} ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -494,6 +542,99 @@ const ProductDetailsPage = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Reviews Section */}
+      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+            Product Reviews ({reviewsResponse?.pagination?.totalReviews || product.rating?.count || 0})
+          </h3>
+        </div>
+
+        {isLoadingReviews ? (
+          <div className="flex justify-center py-8">
+            <LoadingIcon />
+          </div>
+        ) : reviewsResponse?.reviews && reviewsResponse.reviews.length > 0 ? (
+          <div className="space-y-4">
+            {reviewsResponse.reviews.map((review) => (
+              <div
+                key={review._id}
+                className="border border-gray-200 dark:border-gray-600 rounded-lg p-4"
+              >
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex items-start space-x-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold">
+                      {review.userName?.[0]?.toUpperCase() || 'A'}
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {review.userName || 'Anonymous'}
+                        </p>
+                        {review.isVerified && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                            Verified
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-2 mt-1">
+                        <div className="flex items-center">
+                          {[...Array(5)].map((_, i) => (
+                            <Icon
+                              key={i}
+                              icon="ph:star-fill"
+                              className={`w-4 h-4 ${
+                                i < review.rating
+                                  ? 'text-yellow-400'
+                                  : 'text-gray-300'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {new Date(review.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={async () => {
+                      if (window.confirm('Are you sure you want to delete this review?')) {
+                        try {
+                          await deleteReview(review._id).unwrap();
+                          toast.success('Review deleted successfully');
+                          refetchReviews();
+                          refetch(); // Refresh product to update rating
+                        } catch (error) {
+                          toast.error('Failed to delete review');
+                        }
+                      }
+                    }}
+                    disabled={isDeletingReview}
+                    className="btn btn-outline-danger btn-sm"
+                  >
+                    <Icon icon="ph:trash" className="w-4 h-4" />
+                  </Button>
+                </div>
+                {review.title && (
+                  <h4 className="font-medium text-gray-900 dark:text-white mb-2">
+                    {review.title}
+                  </h4>
+                )}
+                <p className="text-gray-600 dark:text-gray-400 text-sm">
+                  {review.body}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <Icon icon="ph:chat-circle-dots" className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500 dark:text-gray-400">No reviews yet</p>
+          </div>
+        )}
       </div>
     </div>
   );

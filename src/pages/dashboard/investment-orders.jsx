@@ -295,7 +295,7 @@ const InvestmentOrders = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Amount</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Payment Method</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+                {/* <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th> */}
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -311,7 +311,8 @@ const InvestmentOrders = () => {
                 </tr>
               ) : (
                 orders.map((order) => (
-                  <tr key={order._id} className="hover:bg-gray-50 dark:hover:bg-slate-700">
+                  <tr                           onClick={() => handleViewOrder(order._id)}
+ key={order._id} className="hover:bg-gray-50 dark:hover:bg-slate-700">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900 dark:text-white">{order.orderId || 'N/A'}</div>
                       <div className="text-sm text-gray-500 dark:text-gray-400">{order.currency || 'INR'}</div>
@@ -338,7 +339,7 @@ const InvestmentOrders = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                       {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    {/* <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
                         <Button
                           onClick={() => handleViewOrder(order._id)}
@@ -359,7 +360,7 @@ const InvestmentOrders = () => {
                           <option value="refunded">Refunded</option>
                         </select>
                       </div>
-                    </td>
+                    </td> */}
                   </tr>
                 ))
               )}

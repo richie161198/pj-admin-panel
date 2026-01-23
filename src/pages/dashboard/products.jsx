@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useGetAllProductsQuery, useDeleteProductMutation } from '@/store/api/product/productApi';
+import { useGetAllProductsQuery, useDeleteProductMutation, useGetAllCategoriesQuery } from '@/store/api/product/productApi';
 import Button from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
 import { toast } from 'react-toastify';
@@ -15,6 +15,7 @@ const Products = () => {
   const itemsPerPage = 12;
 
   const { data: productsResponse, isLoading, error, refetch } = useGetAllProductsQuery();
+  const { data: categoriesResponse } = useGetAllCategoriesQuery();
   const [deleteProduct, { isLoading: isDeleting }] = useDeleteProductMutation();
 
   // Extract products from API response
@@ -34,8 +35,34 @@ const Products = () => {
   console.log('Products Response:', productsResponse);
   console.log('Products:', products);
 
-  // Get unique categories for filter
-  const categories = Array.isArray(products) ? [...new Set(products.map(product => product.categories))] : [];
+  // Extract categories from API response - handle all possible response structures
+  const categories = useMemo(() => {
+    if (!categoriesResponse) return [];
+    
+    // RTK Query wraps response in 'data', so check categoriesResponse.data first
+    if (categoriesResponse.data) {
+      // Backend returns: { status: true, count: X, categories: [...] }
+      if (Array.isArray(categoriesResponse.data.categories)) {
+        return categoriesResponse.data.categories.map(cat => cat.name || cat);
+      }
+      // If data itself is an array
+      if (Array.isArray(categoriesResponse.data)) {
+        return categoriesResponse.data.map(cat => cat.name || cat);
+      }
+    }
+    
+    // Direct categories array
+    if (Array.isArray(categoriesResponse.categories)) {
+      return categoriesResponse.categories.map(cat => cat.name || cat);
+    }
+    
+    // Direct array response
+    if (Array.isArray(categoriesResponse)) {
+      return categoriesResponse.map(cat => cat.name || cat);
+    }
+    
+    return [];
+  }, [categoriesResponse]);
 
   // Filter products based on search term and category
   const filteredProducts = Array.isArray(products) ? products.filter(product => {

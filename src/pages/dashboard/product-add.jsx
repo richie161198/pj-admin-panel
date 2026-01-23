@@ -176,7 +176,34 @@ const ProductAdd = () => {
   const { data: categoriesResponse } = useGetAllCategoriesQuery();
   const { data: investmentSettingsData } = useGetInvestmentSettingsQuery();
 
-  const categories = categoriesResponse?.data?.categories ?? categoriesResponse?.categories ?? categoriesResponse?.data ?? [];
+  // Extract categories from API response - handle all possible response structures
+  const categories = React.useMemo(() => {
+    if (!categoriesResponse) return [];
+    
+    // RTK Query wraps response in 'data', so check categoriesResponse.data first
+    if (categoriesResponse.data) {
+      // Backend returns: { status: true, count: X, categories: [...] }
+      if (Array.isArray(categoriesResponse.data.categories)) {
+        return categoriesResponse.data.categories;
+      }
+      // If data itself is an array
+      if (Array.isArray(categoriesResponse.data)) {
+        return categoriesResponse.data;
+      }
+    }
+    
+    // Direct categories array
+    if (Array.isArray(categoriesResponse.categories)) {
+      return categoriesResponse.categories;
+    }
+    
+    // Direct array response
+    if (Array.isArray(categoriesResponse)) {
+      return categoriesResponse;
+    }
+    
+    return [];
+  }, [categoriesResponse]);
   
   // Get current metal prices from investment settings
   const investmentSettings = investmentSettingsData?.data;
@@ -283,6 +310,16 @@ const ProductAdd = () => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
+    // Validate file sizes (5MB limit)
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    const oversizedFiles = files.filter(file => file.size > maxSize);
+    
+    if (oversizedFiles.length > 0) {
+      toast.error(`Some files exceed 5MB limit: ${oversizedFiles.map(f => f.name).join(', ')}`);
+      e.target.value = ''; // Reset input
+      return;
+    }
+
     console.log('Files selected:', files.length, files);
     setIsUploading(true);
 
@@ -336,7 +373,7 @@ const ProductAdd = () => {
             images: [...prev.images, ...extractedUrls]
           }));
           
-          toast.success(`${extractedUrls.length} image(s) uploaded successfully`);
+          toast.success(`${extractedUrls.length} file(s) uploaded successfully`);
           return;
         }
       } catch (multipleError) {
@@ -374,13 +411,13 @@ const ProductAdd = () => {
             images: [...prev.images, ...uploadedUrls]
           }));
           
-          toast.success(`${uploadedUrls.length} image(s) uploaded successfully`);
+          toast.success(`${uploadedUrls.length} file(s) uploaded successfully`);
         } else {
-          toast.error('Failed to upload any images');
+          toast.error('Failed to upload any files');
         }
       }
     } catch (error) {
-      toast.error('Failed to upload images');
+      toast.error('Failed to upload files');
       console.error('Upload error:', error);
     } finally {
       setIsUploading(false);
@@ -1502,7 +1539,7 @@ const ProductAdd = () => {
                 <input
                   type="file"
                   multiple
-                  accept="image/*"
+                  accept="image/*,video/*"
                   onChange={handleImageUpload}
                   disabled={isUploading}
                   className="hidden"
@@ -1514,36 +1551,56 @@ const ProductAdd = () => {
                 >
                   <Icon icon="ph:cloud-arrow-up" className="text-4xl text-gray-400 mx-auto mb-4" />
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {isUploading ? 'Uploading...' : 'Click to upload images'}
+                    {isUploading ? 'Uploading...' : 'Click to upload images & videos'}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    PNG, JPG, GIF up to 10MB each
+                    Images (PNG, JPG, GIF, WEBP) & Videos (MP4, WEBM, MOV) up to 5MB each
                   </p>
                 </label>
               </div>
 
-              {/* Image Preview */}
+              {/* Image & Video Preview */}
               {uploadedImages.length > 0 && (
                 <div className="space-y-2">
                   <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Uploaded Images ({uploadedImages.length})
+                    Uploaded Media ({uploadedImages.length})
                   </h4>
                   <div className="grid grid-cols-2 gap-2">
-                    {uploadedImages.map((image, index) => (
-                      <div key={index} className="relative group">
-                        <img
-                          src={typeof image === 'string' ? image : image.url || image}
-                          alt={`Product ${index + 1}`}
-                          className="w-full h-24 object-cover rounded-lg border border-gray-200 dark:border-gray-600"
-                        />
-                        <Button
-                          onClick={() => removeImage(index)}
-                          className="absolute -top-2 -right-2 btn btn-sm btn-danger rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Icon icon="ph:x" />
-                        </Button>
-                      </div>
-                    ))}
+                    {uploadedImages.map((media, index) => {
+                      const mediaUrl = typeof media === 'string' ? media : media.url || media;
+                      const isVideo = mediaUrl && (
+                        mediaUrl.includes('.mp4') || 
+                        mediaUrl.includes('.webm') || 
+                        mediaUrl.includes('.mov') ||
+                        mediaUrl.includes('/video/') ||
+                        (typeof media === 'object' && media.format && media.format.includes('video'))
+                      );
+                      
+                      return (
+                        <div key={index} className="relative group">
+                          {isVideo ? (
+                            <video
+                              src={mediaUrl}
+                              className="w-full h-24 object-cover rounded-lg border border-gray-200 dark:border-gray-600"
+                              controls
+                              muted
+                            />
+                          ) : (
+                            <img
+                              src={mediaUrl}
+                              alt={`Product ${index + 1}`}
+                              className="w-full h-24 object-cover rounded-lg border border-gray-200 dark:border-gray-600"
+                            />
+                          )}
+                          <Button
+                            onClick={() => removeImage(index)}
+                            className="absolute -top-2 -right-2 btn btn-sm btn-danger rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Icon icon="ph:x" />
+                          </Button>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}

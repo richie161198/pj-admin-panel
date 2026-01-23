@@ -13,8 +13,8 @@ const useSocket = () => {
     if (!token) return;
 
     // Initialize socket connection
-    // const newSocket = io(process.env.REACT_APP_SOCKET_URL || 'http://localhost:4000', {
-    const newSocket = io('http://localhost:4000', {
+    // const newSocket = io(process.env.REACT_APP_SOCKET_URL || 'https://www.preciousgoldsmith.net', {
+    const newSocket = io('https://www.preciousgoldsmith.net', {
       auth: {
         token: token
       },
