@@ -11,6 +11,8 @@ const Customers = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortField, setSortField] = useState(null); // 'totalOrders' or 'totalOrderValue'
+  const [sortOrder, setSortOrder] = useState('desc'); // 'asc' or 'desc'
   const itemsPerPage = 10;
   const [deleteCustomer, { isLoading: isDeleting }] = useDeleteCustomerMutation();
 
@@ -26,10 +28,37 @@ const Customers = () => {
     customer.phone?.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
+  // Sort customers
+  const sortedCustomers = [...filteredCustomers].sort((a, b) => {
+    if (!sortField) return 0;
+    
+    const aValue = a[sortField] || 0;
+    const bValue = b[sortField] || 0;
+    
+    if (sortOrder === 'asc') {
+      return aValue - bValue;
+    } else {
+      return bValue - aValue;
+    }
+  });
+
+  // Handle sort toggle
+  const handleSort = (field) => {
+    if (sortField === field) {
+      // Toggle order if same field
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      // New field, default to desc (highest first)
+      setSortField(field);
+      setSortOrder('desc');
+    }
+    setCurrentPage(1); // Reset to first page when sorting
+  };
+
   // Pagination
-  const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage);
+  const totalPages = Math.ceil(sortedCustomers.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedCustomers = filteredCustomers.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedCustomers = sortedCustomers.slice(startIndex, startIndex + itemsPerPage);
 
   const handleDeleteCustomer = async (id) => {
     if (window.confirm('Are you sure you want to delete this customer?')) {
@@ -70,7 +99,7 @@ const Customers = () => {
         
         return {
           'S.No': index + 1,
-          'Customer ID': customer._id,
+          'Customer ID': customer.appId,
           'Name': customer.name || 'N/A',
           'Email': customer.email || 'N/A',
           'Phone': customer.phone || 'N/A',
@@ -90,9 +119,11 @@ const Customers = () => {
           'Primary Branch': primaryBank?.branch || 'N/A',
           'Primary Account Status': primaryBank?.account_status || 'N/A',
           'All Bank Details': bankDetailsText,
+          'Total Orders': customer.totalOrders || 0,
+          'Total Order Value': customer.totalOrderValue || 0,
+          'Customer Tier': customer.customerTier || 'Bronze',
           'Balance': customer.balance || '0',
           'Gold Balance': customer.goldBalance || '0',
-          'App ID': customer.appId || 'N/A',
           'Referral Code': customer.referralCode || 'N/A',
           'Role': customer.role || 'N/A',
           'Last Login': customer.lastLogin ? new Date(customer.lastLogin).toLocaleDateString() : 'Never',
@@ -202,7 +233,7 @@ const Customers = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Customers</h1>
-          <p className="text-gray-600 dark:text-gray-400">Manage your customer database</p>
+          <p className="text-gray-600 dark:text-gray-400">Manage your customers</p>
         </div>
         <div className="flex space-x-3">
           <Button
@@ -247,30 +278,64 @@ const Customers = () => {
           <table className="w-full">
             <thead className="bg-gray-50 dark:bg-slate-700">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Customer
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Email
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Phone
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th 
+                  className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-600 select-none"
+                  onClick={() => handleSort('totalOrders')}
+                >
+                  <div className="flex items-center justify-center gap-1">
+                    Orders
+                    <span className="flex flex-col">
+                      <Icon 
+                        icon="ph:caret-up-fill" 
+                        className={`w-3 h-3 -mb-1 ${sortField === 'totalOrders' && sortOrder === 'asc' ? 'text-blue-500' : 'text-gray-400'}`} 
+                      />
+                      <Icon 
+                        icon="ph:caret-down-fill" 
+                        className={`w-3 h-3 ${sortField === 'totalOrders' && sortOrder === 'desc' ? 'text-blue-500' : 'text-gray-400'}`} 
+                      />
+                    </span>
+                  </div>
+                </th>
+                <th 
+                  className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-slate-600 select-none"
+                  onClick={() => handleSort('totalOrderValue')}
+                >
+                  <div className="flex items-center center justify-center gap-1">
+                    Total Value
+                    <span className="flex flex-col">
+                      <Icon 
+                        icon="ph:caret-up-fill" 
+                        className={`w-3 h-3 -mb-1 ${sortField === 'totalOrderValue' && sortOrder === 'asc' ? 'text-blue-500' : 'text-gray-400'}`} 
+                      />
+                      <Icon 
+                        icon="ph:caret-down-fill" 
+                        className={`w-3 h-3 ${sortField === 'totalOrderValue' && sortOrder === 'desc' ? 'text-blue-500' : 'text-gray-400'}`} 
+                      />
+                    </span>
+                  </div>
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Tier
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Join Date
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Actions
-                </th>
+             
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-gray-700">
               {paginatedCustomers.map((customer) => (
                 <tr   onClick={() => handleViewCustomer(customer._id)} key={customer._id} className="hover:bg-gray-50 dark:hover:bg-slate-700">
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10">
                         {customer.profilePhoto ? (
@@ -290,22 +355,49 @@ const Customers = () => {
                           {customer.name || 'N/A'}
                         </div>
                         <div className="text-sm text-gray-500 dark:text-gray-400">
-                          ID: {customer._id}
+                         {customer.appId}
                         </div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="text-sm text-gray-900 dark:text-white">
                       {customer.email || 'N/A'}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="text-sm text-gray-900 dark:text-white">
                       {customer.phone || 'N/A'}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      {customer.totalOrders || 0}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">
+                      ₹{(customer.totalOrderValue || 0).toLocaleString('en-IN')}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    {(() => {
+                      const tier = customer.customerTier || 'Bronze';
+                      const tierStyles = {
+                        Bronze: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+                        Silver: 'bg-gray-200 text-gray-800 dark:bg-gray-600 dark:text-gray-100',
+                        Gold: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+                        Elite: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+                      };
+                   
+                      return (
+                        <span className={`inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full ${tierStyles[tier]}`}>
+                          {tier}
+                        </span>
+                      );
+                    })()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex flex-col space-y-1">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                         customer.active 
@@ -321,17 +413,14 @@ const Customers = () => {
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                    {customer.lastLogin ? new Date(customer.lastLogin).toLocaleDateString() : 'Never'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex justify-end space-x-2">
-                      <Button
+                  {/* <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div className="flex justify-end space-x-2"> */}
+                      {/* <Button
                         onClick={() => handleViewCustomer(customer._id)}
                         className="btn btn-sm btn-outline-primary"
                       >
                         <Icon icon="ph:eye" />
-                      </Button>
+                      </Button> */}
                       {/* <Button
                         onClick={() => navigate(`/customers/${customer._id}/edit`)}
                         className="btn btn-sm btn-outline-secondary"
@@ -345,8 +434,8 @@ const Customers = () => {
                       >
                         <Icon icon="ph:trash" />
                       </Button> */}
-                    </div>
-                  </td>
+                    {/* </div>
+                  </td> */}
                 </tr>
               ))}
             </tbody>
@@ -377,9 +466,9 @@ const Customers = () => {
                 <p className="text-sm text-gray-700 dark:text-gray-300">
                   Showing <span className="font-medium">{startIndex + 1}</span> to{' '}
                   <span className="font-medium">
-                    {Math.min(startIndex + itemsPerPage, filteredCustomers.length)}
+                    {Math.min(startIndex + itemsPerPage, sortedCustomers.length)}
                   </span>{' '}
-                  of <span className="font-medium">{filteredCustomers.length}</span> results
+                  of <span className="font-medium">{sortedCustomers.length}</span> results
                 </p>
               </div>
               <div>

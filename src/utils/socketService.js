@@ -9,8 +9,17 @@ class SocketService {
   }
 
   connect() {
+    // If already connected, nothing to do
     if (this.socket && this.isConnected) {
       return;
+    }
+
+    // If we have a stale/disconnected socket, clean it up before creating a new one
+    if (this.socket) {
+      this.socket.removeAllListeners();
+      this.socket.disconnect();
+      this.socket = null;
+      this.isConnected = false;
     }
 
     const token = getToken();
@@ -20,9 +29,8 @@ class SocketService {
     }
 
     // Get base URL - extract from API base URL (remove /api/v0 suffix)
-    // Default to localhost:4000 if not set
-    // const apiBaseUrl = process.env.REACT_APP_API_URL || 'https://www.preciousgoldsmith.net/api/v0';
-    const apiBaseUrl = 'https://www.preciousgoldsmith.net/api/v0';
+    const serverUrl = process.env.SERVER_URL || 'https://www.preciousgoldsmith.net';
+    const apiBaseUrl = `${serverUrl}/api/v0`;
     const baseUrl = apiBaseUrl.replace('/api/v0', '').replace('/api/v0/', '');
 
     this.socket = io(baseUrl, {
@@ -36,7 +44,10 @@ class SocketService {
       extraHeaders: {
         Authorization: `Bearer ${token}`
       },
-      autoConnect: true
+      autoConnect: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
     });
 
     this.socket.on('connect', () => {

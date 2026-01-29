@@ -161,7 +161,11 @@ const ProductAdd = () => {
     Discount: 0,
     isDiscountAvaiable: false,
     gst: 0,
-    images: []
+    images: [],
+    // Return & Replacement Policy
+    isReturnAllowed: true,
+    isReplacementAllowed: true,
+    returnReplacementDays: 5
   });
 
   const [uploadedImages, setUploadedImages] = useState([]);
@@ -271,7 +275,11 @@ const ProductAdd = () => {
         Discount: product.Discount || 0,
         isDiscountAvaiable: product.isDiscountAvaiable || false,
         gst: product.gst || 0,
-        images: product.images || []
+        images: product.images || [],
+        // Return & Replacement Policy
+        isReturnAllowed: product.isReturnAllowed !== undefined ? product.isReturnAllowed : true,
+        isReplacementAllowed: product.isReplacementAllowed !== undefined ? product.isReplacementAllowed : true,
+        returnReplacementDays: product.returnReplacementDays !== undefined ? product.returnReplacementDays : 5
       });
       setUploadedImages(product.images || []);
     }
@@ -911,7 +919,7 @@ const ProductAdd = () => {
                   />
                 </div>
 
-                <div>
+                {/* <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Category *
                   </label>
@@ -929,11 +937,11 @@ const ProductAdd = () => {
                       </option>
                     ))}
                   </select>
-                </div>
+                </div> */}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Category Id *
+                    Category *
                   </label>
                   <select
                     name="categoryId"
@@ -1069,6 +1077,57 @@ const ProductAdd = () => {
                       min="0"
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-700 dark:text-white"
                     />
+                  </div>
+                </div>
+              </div>
+
+              {/* Return & Replacement Policy */}
+              <div className="bg-gray-50 dark:bg-slate-700 rounded-lg p-4">
+                {/* <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4 flex items-center">
+                  <Icon icon="ph:arrow-counter-clockwise" className="mr-2 text-purple-500" />
+                  Return & Replacement Policy
+                </h3> */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      name="isReturnAllowed"
+                      checked={formData.isReturnAllowed}
+                      onChange={handleInputChange}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                      Allow Return
+                    </label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      name="isReplacementAllowed"
+                      checked={formData.isReplacementAllowed}
+                      onChange={handleInputChange}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <label className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                      Allow Replacement
+                    </label>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Days Allowed
+                    </label>
+                    <input
+                      type="number"
+                      name="returnReplacementDays"
+                      value={formData.returnReplacementDays}
+                      onChange={handleInputChange}
+                      min="0"
+                      max="365"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-slate-800 dark:text-white"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Days from delivery for return/replacement
+                    </p>
                   </div>
                 </div>
               </div>

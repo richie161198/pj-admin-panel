@@ -54,10 +54,16 @@ export const menuItems = [
     link: "invoices",
   },
    {
-    title: "Return & Refunds",
+    title: "Return & Replacement",
     isHide: true,
     icon: "ph:arrow-counter-clockwise",
     link: "return-refunds",
+  },
+  {
+    title: "Reviews",
+    isHide: true,
+    icon: "ph:star",
+    link: "reviews",
   },
     {
     isHeadr: true,

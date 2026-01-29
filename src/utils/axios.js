@@ -1,9 +1,12 @@
 import axios from 'axios';
 import { getToken, isTokenExpired, clearAuth } from './auth';
 
+// Get server URL from environment with fallback
+const SERVER_URL = process.env.SERVER_URL || 'https://www.preciousgoldsmith.net';
+
 // Create axios instance
 const api = axios.create({
-  baseURL: 'https://www.preciousgoldsmith.net/api/v0',
+  baseURL: `${SERVER_URL}/api/v0`,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',

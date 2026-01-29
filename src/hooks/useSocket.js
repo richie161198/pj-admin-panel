@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
+import { getToken } from '@/utils/auth';
 
 const useSocket = () => {
   const [socket, setSocket] = useState(null);
@@ -8,17 +9,19 @@ const useSocket = () => {
   const socketRef = useRef(null);
 
   useEffect(() => {
-    // const token = localStorage.getItem('token');
-    const token = localStorage.getItem('precious_jewels_ad_token');
+    const token = getToken();
     if (!token) return;
 
-    // Initialize socket connection
-    // const newSocket = io(process.env.REACT_APP_SOCKET_URL || 'https://www.preciousgoldsmith.net', {
-    const newSocket = io('https://www.preciousgoldsmith.net', {
+    // Initialize socket connection - creates fresh connection when entering the Chat page
+    const serverUrl = process.env.SERVER_URL || 'https://www.preciousgoldsmith.net';
+    const newSocket = io(serverUrl, {
       auth: {
         token: token
       },
-      transports: ['websocket', 'polling']
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
     });
 
     socketRef.current = newSocket;

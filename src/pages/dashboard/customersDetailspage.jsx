@@ -244,7 +244,7 @@ const CustomerDetailsPage = () => {
                   {customer.name || 'N/A'}
                 </h2>
                 <p className="text-gray-600 dark:text-gray-400">
-                  Customer ID: {customer._id}
+                  Customer ID: {customer.appId || 'N/A'}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${
@@ -262,6 +262,10 @@ const CustomerDetailsPage = () => {
                   {customer.mobileVerified && (
                     <span className="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
                       Mobile Verified
+                    </span>
+                  )}  {customer.panVerified && (
+                    <span className="inline-flex px-3 py-1 text-sm font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                      PAN Verified
                     </span>
                   )}
                 </div>
@@ -360,6 +364,53 @@ const CustomerDetailsPage = () => {
 
         {/* Sidebar */}
         <div className="space-y-6">
+          {/* Customer Tier Card */}
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm p-6">
+            <div className="text-center">
+              {(() => {
+                const tier = customer.customerTier || 'Bronze';
+                const tierColors = {
+                  Bronze: 'from-orange-400 to-orange-600',
+                  Silver: 'from-gray-400 to-gray-600',
+                  Gold: 'from-yellow-400 to-yellow-600',
+                  Elite: 'from-purple-400 to-purple-600',
+                };
+                const tierIcons = {
+                  Bronze: '🥉',
+                  Silver: '🥈',
+                  Gold: '🥇',
+                  Elite: '💎',
+                };
+                return (
+                  <>
+                    <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br ${tierColors[tier]} text-white text-3xl mb-3`}>
+                      {tierIcons[tier]}
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">{tier} Member</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      {tier === 'Elite' ? 'Top tier customer!' : 
+                       tier === 'Gold' ? '4 more orders for Elite' : 
+                       tier === 'Silver' ? `${6 - (customer.totalOrders || 0)} more orders for Gold` : 
+                       `${3 - (customer.totalOrders || 0)} more orders for Silver`}
+                    </p>
+                  </>
+                );
+              })()}
+            </div>
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="grid grid-cols-2 gap-4 text-center">
+                <div>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{customer.totalOrders || 0}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Total Orders</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">₹{(customer.totalOrderValue || 0).toLocaleString('en-IN')}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Total Value</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Quick Stats */}
           <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm p-6">
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
@@ -398,11 +449,21 @@ const CustomerDetailsPage = () => {
                   {customer.mobileVerified ? 'Yes' : 'No'}
                 </span>
               </div>
+               <div className="flex justify-between">
+                <span className="text-sm text-gray-500 dark:text-gray-400">Pan Verified</span>
+                <span className={`text-sm font-medium ${
+                  customer.panVerified 
+                    ? 'text-green-600 dark:text-green-400' 
+                    : 'text-red-600 dark:text-red-400'
+                }`}>
+                  {customer.panVerified ? 'Yes' : 'No'}
+                </span>
+              </div>
             </div>
           </div>
 
           {/* Actions */}
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm p-6">
+          {/* <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm p-6">
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
               Quick Actions
             </h3>
@@ -429,7 +490,7 @@ const CustomerDetailsPage = () => {
                 Edit Profile
               </Button>
             </div>
-          </div>
+          </div> */}
         </div>
       </div>
 

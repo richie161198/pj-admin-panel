@@ -56,6 +56,8 @@ const Banners = () => {
   const [editingBanner, setEditingBanner] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [videoFile, setVideoFile] = useState(null);
+  const [videoPreview, setVideoPreview] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -80,7 +82,8 @@ const Banners = () => {
   const [formData, setFormData] = useState({
     position: 0,
     isActive: true,
-    category: ''
+    category: '',
+    bannerType: 'image' // 'image' or 'video'
   });
   
   const [positionError, setPositionError] = useState('');
@@ -122,7 +125,7 @@ const Banners = () => {
     }));
   };
 
-  // Pick file & preview (upload happens on submit)
+  // Pick image file & preview (upload happens on submit)
   const handleFilePick = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -139,6 +142,23 @@ const Banners = () => {
     setImagePreview(url);
   };
 
+  // Pick video file & preview
+  const handleVideoPick = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('video/')) {
+      alert('Please select a valid video file');
+      return;
+    }
+    if (file.size > 100 * 1024 * 1024) {
+      alert('Video size should be less than 100MB');
+      return;
+    }
+    setVideoFile(file);
+    const url = URL.createObjectURL(file);
+    setVideoPreview(url);
+  };
+
   // Check if position is already taken for the category
   const checkPositionExists = (category, position) => {
     if (!category || !position) return false;
@@ -153,9 +173,22 @@ const Banners = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!imageFile) {
-      alert('Please choose an image');
-      return;
+    const isVideoBanner = formData.category === 'video-banner';
+    
+    if (isVideoBanner) {
+      if (!videoFile) {
+        alert('Please choose a video file');
+        return;
+      }
+      if (!imageFile) {
+        alert('Please choose a thumbnail image for the video');
+        return;
+      }
+    } else {
+      if (!imageFile) {
+        alert('Please choose an image');
+        return;
+      }
     }
     
     if (!formData.category) {
@@ -172,7 +205,7 @@ const Banners = () => {
     setPositionError('');
     setUploading(true);
     try {
-      // 1) upload image
+      // 1) upload image (thumbnail for video banners)
       const fd = new FormData();
       fd.append('image', imageFile);
       const uploadRes = await api.post('/images/upload', fd, {
@@ -181,17 +214,41 @@ const Banners = () => {
       if (!uploadRes.data?.success) throw new Error('Image upload failed');
       const img = uploadRes.data.data;
 
-      // 2) save banner
+      let videoData = null;
+      
+      // 2) upload video if it's a video banner
+      if (isVideoBanner && videoFile) {
+        const videoFd = new FormData();
+        videoFd.append('video', videoFile);
+        const videoUploadRes = await api.post('/images/upload-video', videoFd, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          timeout: 300000, // 5 minute timeout for video uploads
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            console.log(`Video upload progress: ${percentCompleted}%`);
+          }
+        });
+        if (!videoUploadRes.data?.success) throw new Error('Video upload failed');
+        videoData = videoUploadRes.data.data;
+      }
+
+      // 3) save banner
       const payload = {
         position: Number(formData.position) || 0,
         isActive: !!formData.isActive,
         category: formData.category,
+        bannerType: isVideoBanner ? 'video' : 'image',
         imageUrl: img.url,
         publicId: img.public_id,
         imageWidth: img.width,
         imageHeight: img.height,
         imageFormat: img.format,
-        imageBytes: img.bytes
+        imageBytes: img.bytes,
+        ...(videoData && {
+          videoUrl: videoData.url,
+          videoPublicId: videoData.public_id,
+          videoThumbnail: img.url
+        })
       };
       const createRes = await api.post('/banners', payload);
       if (!createRes.data?.success) throw new Error('Banner save failed');
@@ -201,7 +258,17 @@ const Banners = () => {
       await fetchBanners();
     } catch (error) {
       console.error('Error saving banner:', error);
-      const errorMessage = error?.response?.data?.message || error.message || 'Failed to save';
+      let errorMessage = error?.response?.data?.message || error?.response?.data?.error || error.message || 'Failed to save';
+      
+      // Add more context for common errors
+      if (error.code === 'ECONNABORTED') {
+        errorMessage = 'Upload timed out. Please try with a smaller video file.';
+      } else if (error.response?.status === 413) {
+        errorMessage = 'File too large. Maximum video size is 100MB.';
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Server error during upload. Please try again.';
+      }
+      
       if (errorMessage.includes('position') || errorMessage.includes('Position')) {
         setPositionError(errorMessage);
       } else {
@@ -217,10 +284,13 @@ const Banners = () => {
     setFormData({
       position: 0,
       isActive: true,
-      category: ''
+      category: '',
+      bannerType: 'image'
     });
     setImagePreview(null);
     setImageFile(null);
+    setVideoPreview(null);
+    setVideoFile(null);
     setEditingBanner(null);
     setPositionError('');
   };
@@ -397,7 +467,14 @@ const Banners = () => {
               <Select
                 name="category"
                 value={formData.category}
-                onChange={handleInputChange}
+                onChange={(e) => {
+                  handleInputChange(e);
+                  // Reset video file when category changes
+                  if (e.target.value !== 'video-banner') {
+                    setVideoFile(null);
+                    setVideoPreview(null);
+                  }
+                }}
                 required
               >
                 <option value="">Select Category</option>
@@ -405,7 +482,11 @@ const Banners = () => {
                 <option value="offer&deals">Offer & Deals</option>
                 <option value="ecommerce">Ecommerce</option>
                 <option value="top-collections">Top Collections</option>
+                <option value="video-banner">Video Banner</option>
               </Select>
+              {formData.category === 'video-banner' && (
+                <p className="text-xs text-blue-600 mt-1">Video banners will be displayed under Top Collections section in the app</p>
+              )}
             </div>
             <div>
               <label className="block text-sm mb-1">Position <span className="text-red-500">*</span></label>
@@ -428,13 +509,41 @@ const Banners = () => {
               <Switch name="isActive" checked={formData.isActive} onChange={handleInputChange} />
               <span className="text-sm">Active</span>
             </div>
-            <div>
-              <input type="file" accept="image/*" onChange={handleFilePick} />
-              {imagePreview && <img src={imagePreview} alt="preview" className="mt-3 h-40 object-cover rounded" />}
-            </div>
+            {formData.category === 'video-banner' ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm mb-1">Video File <span className="text-red-500">*</span></label>
+                  <input type="file" accept="video/*" onChange={handleVideoPick} />
+                  {videoPreview && (
+                    <video 
+                      src={videoPreview} 
+                      controls 
+                      className="mt-3 h-40 object-cover rounded w-full"
+                    />
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm mb-1">Thumbnail Image <span className="text-red-500">*</span></label>
+                  <input type="file" accept="image/*" onChange={handleFilePick} />
+                  {imagePreview && <img src={imagePreview} alt="thumbnail preview" className="mt-3 h-40 object-cover rounded" />}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-sm mb-1">Banner Image <span className="text-red-500">*</span></label>
+                <input type="file" accept="image/*" onChange={handleFilePick} />
+                {imagePreview && <img src={imagePreview} alt="preview" className="mt-3 h-40 object-cover rounded" />}
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <Button type="button" onClick={()=>{resetForm(); setUploaderOpen(false);}}>Cancel</Button>
-              <Button type="submit" className="bg-blue-600 text-white" disabled={uploading || !imageFile}>{uploading ? 'Saving...' : 'Save Banner'}</Button>
+              <Button 
+                type="submit" 
+                className="bg-blue-600 text-white" 
+                disabled={uploading || !imageFile || (formData.category === 'video-banner' && !videoFile)}
+              >
+                {uploading ? 'Uploading...' : 'Save Banner'}
+              </Button>
             </div>
           </form>
         </div>
@@ -501,12 +610,29 @@ const Banners = () => {
                     {categoryBanners.map((banner) => (
           <Card key={banner._id} className="overflow-hidden">
             <div className="relative">
-              <img
-                src={banner.imageUrl}
-                alt={banner.category || 'Banner'}
-                className="w-full h-48 object-cover"
-              />
-              <div className="absolute top-2 right-2">
+              {banner.bannerType === 'video' && banner.videoUrl ? (
+                <video
+                  src={banner.videoUrl}
+                  poster={banner.videoThumbnail || banner.imageUrl}
+                  className="w-full h-48 object-cover"
+                  muted
+                  loop
+                  onMouseOver={(e) => e.target.play()}
+                  onMouseOut={(e) => { e.target.pause(); e.target.currentTime = 0; }}
+                />
+              ) : (
+                <img
+                  src={banner.imageUrl}
+                  alt={banner.category || 'Banner'}
+                  className="w-full h-48 object-cover"
+                />
+              )}
+              <div className="absolute top-2 right-2 flex gap-2">
+                {banner.bannerType === 'video' && (
+                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                    Video
+                  </span>
+                )}
                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                   banner.isActive 
                     ? 'bg-green-100 text-green-800' 

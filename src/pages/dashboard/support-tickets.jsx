@@ -24,7 +24,7 @@ const SupportTickets = () => {
     status: '',
     category: '',
     page: 1,
-    limit: 10
+    limit: 1000
   });
   // API queries
   const { data: ticketsData, isLoading: ticketsLoading, refetch: refetchTickets } = useGetAllTicketsQuery(filters);
@@ -89,6 +89,10 @@ const SupportTickets = () => {
     
     socketService.on('connect', () => {
       setIsSocketConnected(true);
+      // Re-join the selected ticket when connection is (re)established
+      if (selectedTicket?._id) {
+        socketService.joinTicket(selectedTicket._id);
+      }
     });
 
     socketService.on('disconnect', () => {
@@ -194,6 +198,8 @@ const SupportTickets = () => {
       socketService.off('ticket_status_updated');
       socketService.off('new_ticket_reply');
       socketService.off('error');
+      // Disconnect when leaving the page so connection is re-established fresh on return
+      socketService.disconnect();
     };
   }, [selectedTicket?._id]);
 
@@ -586,37 +592,6 @@ const SupportTickets = () => {
               })}
             </div>
             
-            {/* Pagination */}
-            {pagination && pagination.pages > 1 && (
-              <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Showing {((pagination.current || pagination.currentPage || filters.page) - 1) * filters.limit + 1} to{' '}
-                  {Math.min((pagination.current || pagination.currentPage || filters.page) * filters.limit, pagination.total)} of{' '}
-                  {pagination.total} tickets
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    onClick={() => handleFilterChange('page', filters.page - 1)}
-                    disabled={filters.page === 1}
-                    className="btn btn-sm btn-outline"
-                  >
-                    <Icon icon="ph:arrow-left" className="mr-1" />
-                    Previous
-                  </Button>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    Page {pagination.current || pagination.currentPage || filters.page} of {pagination.pages}
-                  </span>
-                  <Button
-                    onClick={() => handleFilterChange('page', filters.page + 1)}
-                    disabled={filters.page >= pagination.pages}
-                    className="btn btn-sm btn-outline"
-                  >
-                    Next
-                    <Icon icon="ph:arrow-right" className="ml-1" />
-                  </Button>
-                </div>
-              </div>
-            )}
           </Card>
         </div>
 
@@ -880,7 +855,7 @@ const SupportTickets = () => {
                     />
                   </div>
                   <div className="flex items-center justify-between">
-                    <label className="flex items-center space-x-2">
+                    {/* <label className="flex items-center space-x-2">
                       <input
                         type="checkbox"
                         checked={isInternalReply}
@@ -890,7 +865,7 @@ const SupportTickets = () => {
                       <span className="text-sm text-gray-700 dark:text-gray-300">
                         Internal Note (not visible to user)
                       </span>
-                    </label>
+                    </label> */}
                     <Button
                       type="submit"
                       disabled={!replyMessage.trim() || isAddingReply || !isSocketConnected}

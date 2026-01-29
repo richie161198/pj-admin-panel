@@ -96,12 +96,12 @@ const Chat = () => {
     };
   }, [socket, selectedChat, on, off, refetchChat, refetchChats]);
 
-  // Join chat when selected
+  // Join chat when selected; re-join when socket reconnects (isConnected becomes true)
   useEffect(() => {
-    if (selectedChat?.id && socket) {
+    if (selectedChat?.id && socket && isConnected) {
       joinChat(selectedChat.id);
     }
-  }, [selectedChat, socket, joinChat]);
+  }, [selectedChat, socket, joinChat, isConnected]);
 
   // Mark messages as read when chat is selected
   useEffect(() => {

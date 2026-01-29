@@ -1,9 +1,12 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { getToken, isTokenExpired, clearAuth } from '@/utils/auth';
 
+// Get server URL from environment with fallback
+const SERVER_URL = process.env.SERVER_URL || 'https://www.preciousgoldsmith.net';
+
 const baseQueryWithAuth = async (args, api, extraOptions) => {
   const baseQuery = fetchBaseQuery({
-    baseUrl: "https://www.preciousgoldsmith.net/api/v0/invoices",
+    baseUrl: `${SERVER_URL}/api/v0/invoices`,
     prepareHeaders: (headers, { getState }) => {
       const token = getToken();
       if (token) {

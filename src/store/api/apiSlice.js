@@ -1,11 +1,12 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { getToken, isTokenExpired, clearAuth } from '@/utils/auth';
 
+// Get server URL from environment with fallback
+const SERVER_URL = process.env.SERVER_URL || 'https://www.preciousgoldsmith.net';
+
 const baseQueryWithAuth = async (args, api, extraOptions) => {
   const baseQuery = fetchBaseQuery({
-    // baseUrl: "https://www.preciousgoldsmith.net/api/v0",
-    baseUrl: "https://www.preciousgoldsmith.net/api/v0",
-    // baseUrl: "http://localhost:4000/api/v0",
+    baseUrl: `${SERVER_URL}/api/v0`,
     prepareHeaders: (headers, { getState }) => {
       // Get token from localStorage or sessionStorage using utility function
       const token = getToken();

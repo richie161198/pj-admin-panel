@@ -2,27 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useGetMaintenanceStatusQuery, useUpdateMaintenanceStatusMutation } from '@/store/api/maintenance/maintenanceApi';
 import { toast } from 'react-toastify';
 
-// Helper to convert UTC date string from backend to local datetime-local input value
-const formatDateForInput = (utcDateString) => {
-  if (!utcDateString) return '';
-  const date = new Date(utcDateString);
-  if (Number.isNaN(date.getTime())) return '';
-  // Adjust by timezone offset so toISOString returns local time
-  const tzOffset = date.getTimezoneOffset();
-  const localDate = new Date(date.getTime() - tzOffset * 60000);
-  return localDate.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:mm"
-};
-
-// Helper to convert local datetime-local value to UTC ISO string for backend
-const convertLocalToUTC = (localDateTimeValue) => {
-  if (!localDateTimeValue) return null;
-  const localDate = new Date(localDateTimeValue);
-  if (Number.isNaN(localDate.getTime())) return null;
-  // new Date(...) parses the datetime-local string as local time.
-  // Calling toISOString() converts that local time to the correct UTC instant.
-  return localDate.toISOString();
-};
-
 const MaintenancePage = () => {
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
   const [maintenanceMessage, setMaintenanceMessage] = useState('');
@@ -42,52 +21,13 @@ const MaintenancePage = () => {
       setIsMaintenanceMode(data.isMaintenanceMode || false);
       setMaintenanceMessage(data.maintenanceMessage || '');
       setMaintenanceTitle(data.maintenanceTitle || '');
-      // Convert UTC from backend to local value for datetime-local input
-      setEstimatedEndTime(formatDateForInput(data.estimatedEndTime));
+      setEstimatedEndTime(data.estimatedEndTime ? new Date(data.estimatedEndTime).toISOString().slice(0, 16) : '');
       setMaintenanceType(data.maintenanceType || 'emergency');
       // The following advanced fields are no longer exposed in the UI,
       // but we keep state wiring for compatibility if backend returns them.
       setAffectedServices(data.affectedServices || ['all']);
       setAllowedIPs(data.allowedIPs ? data.allowedIPs.join(', ') : '');
       setAllowedUserIds(data.allowedUserIds ? data.allowedUserIds.join(', ') : '');
-
-      // Auto-disable maintenance on page refresh if end time has passed
-      try {
-        if (data.isMaintenanceMode && data.estimatedEndTime) {
-          const endTime = new Date(data.estimatedEndTime);
-          const now = new Date();
-
-          if (!Number.isNaN(endTime.getTime()) && endTime.getTime() <= now.getTime()) {
-            const autoUpdateData = {
-              isMaintenanceMode: false,
-              maintenanceMessage: data.maintenanceMessage || '',
-              maintenanceTitle: data.maintenanceTitle || '',
-              estimatedEndTime: null,
-              maintenanceType: data.maintenanceType || 'emergency',
-            };
-
-            console.log('Auto-disabling maintenance because estimatedEndTime has passed:', {
-              endTime,
-              now,
-              autoUpdateData,
-            });
-
-            // Fire and forget; UI state will refresh via refetch
-            updateMaintenance(autoUpdateData)
-              .unwrap()
-              .then((response) => {
-                console.log('Auto-disable maintenance response:', response);
-                setIsMaintenanceMode(false);
-                refetch();
-              })
-              .catch((error) => {
-                console.error('Error auto-disabling maintenance:', error);
-              });
-          }
-        }
-      } catch (err) {
-        console.error('Error in auto-disable maintenance check:', err);
-      }
     }
   }, [maintenanceData]);
 
@@ -107,8 +47,7 @@ const MaintenancePage = () => {
         isMaintenanceMode,
         maintenanceMessage,
         maintenanceTitle,
-        // Convert local datetime-local input to UTC ISO string for backend
-        estimatedEndTime: estimatedEndTime ? convertLocalToUTC(estimatedEndTime) : null,
+        estimatedEndTime: estimatedEndTime ? new Date(estimatedEndTime).toISOString() : null,
         maintenanceType
         // Advanced controls (affectedServices, allowedIPs, allowedUserIds) are no longer editable from the UI.
       };

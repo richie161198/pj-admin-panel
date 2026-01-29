@@ -194,6 +194,52 @@ const NotificationsPage = () => {
     }
   };
 
+  const handleCreateAndSendNotification = async () => {
+    console.log('Creating and sending notification immediately:', formData);
+    
+    // Basic validation
+    if (!formData.title || !formData.message) {
+      toast.error('Title and message are required');
+      return;
+    }
+    
+    // Prepare notification data without scheduledAt (send immediately)
+    const notificationData = {
+      ...formData,
+      scheduledAt: null, // Clear scheduledAt for immediate sending
+      targetUsers: formData.targetAudience === 'specific_users' ? selectedUsers : []
+    };
+    
+    try {
+      // First create the notification
+      const createResponse = await createNotification(notificationData).unwrap();
+      console.log('Create notification response:', createResponse);
+      
+      if (createResponse.status && createResponse.data?._id) {
+        // Then immediately send it
+        const sendResponse = await sendNotification(createResponse.data._id).unwrap();
+        
+        if (sendResponse.status) {
+          toast.success(`Notification sent successfully to ${sendResponse.data?.sentCount || 0} devices`);
+          setShowCreateModal(false);
+          resetForm();
+          setSelectedUsers([]);
+          refetch();
+        } else {
+          toast.error(sendResponse.message || 'Notification created but failed to send');
+          refetch();
+        }
+      } else {
+        toast.error(createResponse.message || 'Failed to create notification');
+      }
+    } catch (error) {
+      console.error('Create and send notification error:', error);
+      const errorMessage = error?.data?.message || error?.message || 'Failed to create and send notification';
+      toast.error(errorMessage);
+      refetch(); // Refetch in case notification was created but send failed
+    }
+  };
+
   const handleUpdateNotification = async (e) => {
     e.preventDefault();
     try {
@@ -565,9 +611,15 @@ const NotificationsPage = () => {
                         <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
                           <span>Type: {notification.type}</span>
                           <span>Target: {notification.targetAudience}</span>
-                          <span>Created: {new Date(notification.createdAt).toLocaleDateString()}</span>
+                          {notification.createdBy && (
+                            <span className="flex items-center">
+                              <Icon icon="ph:user" className="mr-1" />
+                              Created by: {notification.createdBy.name || notification.createdBy.email || 'Unknown'}
+                            </span>
+                          )}
+                          <span>Created: {new Date(notification.createdAt).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</span>
                           {notification.sentAt && (
-                            <span>Sent: {new Date(notification.sentAt).toLocaleDateString()}</span>
+                            <span>Sent: {new Date(notification.sentAt).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}</span>
                           )}
                         </div>
                         {notification.sentCount > 0 && (
@@ -599,6 +651,25 @@ const NotificationsPage = () => {
                             >
                               <Icon icon="ph:paper-plane" className="mr-1" />
                               Send
+                            </Button>
+                          </>
+                        )}
+                        {notification.status === 'scheduled' && (
+                          <>
+                            <Button
+                              onClick={() => handleEdit(notification)}
+                              className="btn btn-sm btn-outline"
+                            >
+                              <Icon icon="ph:pencil" className="mr-1" />
+                              Edit
+                            </Button>
+                            <Button
+                              onClick={() => handleSendNotification(notification._id)}
+                              disabled={isSending}
+                              className="btn btn-sm btn-primary"
+                            >
+                              <Icon icon="ph:paper-plane-tilt" className="mr-1" />
+                              Send now
                             </Button>
                           </>
                         )}
@@ -904,8 +975,19 @@ const NotificationsPage = () => {
                   disabled={showCreateModal ? isCreating : isUpdating}
                   className="btn btn-primary"
                 >
-                  {showCreateModal ? (isCreating ? 'Creating...' : 'Create') : (isUpdating ? 'Updating...' : 'Update')}
+                  {showCreateModal ? (isCreating ? 'Creating...' : 'Save as Draft') : (isUpdating ? 'Updating...' : 'Update')}
                 </Button>
+                {showCreateModal && (
+                  <Button
+                    type="button"
+                    onClick={handleCreateAndSendNotification}
+                    disabled={isCreating || isSending}
+                    className="btn btn-success"
+                  >
+                    <Icon icon="ph:paper-plane" className="mr-2" />
+                    {isCreating || isSending ? 'Sending...' : 'Send Now'}
+                  </Button>
+                )}
               </div>
             </form>
           </div>

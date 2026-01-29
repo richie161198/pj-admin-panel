@@ -44,6 +44,7 @@ const AdminDetails = lazy(() => import("./pages/dashboard/admin-details"));
 const Banners = lazy(() => import("./pages/dashboard/banners"));
 const ReferredUsers = lazy(() => import("./pages/dashboard/referred-users"));
 const AppointmentsPage = lazy(() => import("./pages/dashboard/appointments"));
+const Reviews = lazy(() => import("./pages/dashboard/reviews"));
 const TokenDebug = lazy(() => import("./pages/debug/token-debug"));
 
 const Login = lazy(() => import("./pages/auth/login"));
@@ -373,6 +374,11 @@ function App() {
           <Route path="appointments" element={
             <PermissionRoute requiredPermission="appointments">
               <AppointmentsPage />
+            </PermissionRoute>
+          } />
+          <Route path="reviews" element={
+            <PermissionRoute requiredPermission="reviews">
+              <Reviews />
             </PermissionRoute>
           } />
           <Route path="*" element={<Navigate to="/404" />} />

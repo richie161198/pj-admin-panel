@@ -97,8 +97,8 @@ const InvestmentOrders = () => {
         'Amount': order.inramount || 0,
         'Currency': order.currency || 'INR',
         'Payment Method': order.Payment_method || 'N/A',
-        'Created At': order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A',
-        'Updated At': order.updatedAt ? new Date(order.updatedAt).toLocaleDateString() : 'N/A'
+        'Created At': order.createdAt ? new Date(order.createdAt).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : 'N/A',
+        'Updated At': order.updatedAt ? new Date(order.updatedAt).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }) : 'N/A'
       }));
 
       const ws = XLSX.utils.json_to_sheet(excelData);
@@ -294,7 +294,7 @@ const InvestmentOrders = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Amount</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Payment Method</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Date & Time</th>
                 {/* <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th> */}
               </tr>
             </thead>
@@ -337,7 +337,14 @@ const InvestmentOrders = () => {
                       <div className="text-sm text-gray-900 dark:text-white">{order.Payment_method || 'N/A'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {order.createdAt ? new Date(order.createdAt).toLocaleDateString() : 'N/A'}
+                      {order.createdAt ? new Date(order.createdAt).toLocaleString('en-IN', { 
+                        day: '2-digit', 
+                        month: '2-digit', 
+                        year: 'numeric', 
+                        hour: '2-digit', 
+                        minute: '2-digit',
+                        hour12: true 
+                      }) : 'N/A'}
                     </td>
                     {/* <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">

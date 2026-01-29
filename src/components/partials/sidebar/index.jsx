@@ -25,6 +25,7 @@ const Sidebar = () => {
     'orders': 'orders',
     'invoices': 'invoices',
     'return-refunds': 'return-refunds',
+    'reviews': 'reviews',
     // Investment section
     'investment-orders': 'investment-orders',
     'autopay-subscriptions': 'autopay-subscriptions',

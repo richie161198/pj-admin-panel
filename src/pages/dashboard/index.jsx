@@ -372,9 +372,56 @@ const Dashboard = () => {
               ))}
           </ul>
         </Card>
-        {/* <Card title="Total Earning">
-          <Earnings />
-        </Card> */}
+        <Card title="Out of Stock" subtitle="Products that need restocking">
+          {productsData?.filter((p) => p.stock === 0 || p.stock <= 0).length === 0 ? (
+            <div className="text-center py-8">
+              <div className="h-12 w-12 mx-auto mb-3 rounded-full bg-green-500/10 text-green-500 flex items-center justify-center">
+                <Icon icon="ph:check-circle" className="text-2xl" />
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">All products are in stock!</p>
+            </div>
+          ) : (
+            <ul className="space-y-4 max-h-[300px] overflow-y-auto">
+              {productsData
+                ?.filter((p) => p.stock === 0 || p.stock <= 0)
+                ?.map((item, i) => (
+                  <li key={i} className="flex justify-between items-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded-lg -mx-2" onClick={() => navigate(`/products/${item._id}`)}>
+                    <div className="flex items-center space-x-3 rtl:space-x-reverse">
+                      <div className="flex-none">
+                        <div className="h-[40px] w-[40px] bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden">
+                          {item.images && item.images.length > 0 ? (
+                            <img
+                              src={item.images[0]}
+                              alt={item.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Icon icon="ph:image" className="text-xl text-gray-400" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-sm font-medium truncate max-w-[120px]">{item.name}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">SKU: {item.skuId || 'N/A'}</div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                        Out of Stock
+                      </span>
+                      {item.outOfStockDate && (
+                        <span className="text-xs text-orange-500 mt-1">
+                          Since {new Date(item.outOfStockDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                ))}
+            </ul>
+          )}
+        </Card>
       </div>
       {/* end grid */}
       <div>

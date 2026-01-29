@@ -167,6 +167,7 @@ const AdminDetails = () => {
     { id: 'orders', label: 'Orders', icon: 'ph:shopping-cart' },
     { id: 'invoices', label: 'Invoices', icon: 'ph:receipt' },
     { id: 'return-refunds', label: 'Return & Refunds', icon: 'ph:arrow-counter-clockwise' },
+    { id: 'reviews', label: 'Reviews', icon: 'ph:star' },
     // Investment section
     { id: 'investment-orders', label: 'Investment Orders', icon: 'ph:chart-line-up' },
     { id: 'autopay-subscriptions', label: 'Autopay Subscriptions', icon: 'ph:repeat' },

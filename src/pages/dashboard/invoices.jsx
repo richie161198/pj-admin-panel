@@ -9,6 +9,9 @@ import LoadingIcon from '@/components/LoadingIcon';
 import Badge from '@/components/ui/Badge';
 import * as XLSX from 'xlsx';
 
+// Get server URL from environment with fallback
+const SERVER_URL = process.env.SERVER_URL || 'https://www.preciousgoldsmith.net';
+
 const Invoices = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
@@ -50,7 +53,8 @@ const Invoices = () => {
     try {
       toast.info('Preparing invoice for download...');
 
-      const response = await fetch(`https://www.preciousgoldsmith.net/api/v0/invoices/${invoiceId}/download`, {
+      // const response = await fetch(`${SERVER_URL}/api/v0/invoices/${invoiceId}/download`, {
+      const response = await fetch(`${SERVER_URL}/api/v0/invoices/${invoiceId}/download`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -94,7 +98,7 @@ const Invoices = () => {
         if (!invoice) continue;
 
         try {
-          const response = await fetch(`https://www.preciousgoldsmith.net/api/v0/invoices/${invoiceId}/download`, {
+          const response = await fetch(`${SERVER_URL}/api/v0/invoices/${invoiceId}/download`, {
             method: 'GET',
           });
 

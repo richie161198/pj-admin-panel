@@ -56,7 +56,7 @@ const ReturnRefunds = () => {
     const reason = typeof request === 'object' ? request.reason || request.items?.[0]?.reason : null;
 
     try {
-      // First, accept the return/refund request
+      // First, accept the return/replacement request
       await acceptRequest({ requestId }).unwrap();
       
       // If it's a return request (not just refund), create return shipment in BVC
@@ -66,14 +66,14 @@ const ReturnRefunds = () => {
             orderCode: orderCode,
             reason: reason || 'Return approved by admin',
           }).unwrap();
-          toast.success('Return/Refund request approved and return shipment created successfully');
+          toast.success('Return/Replacement request approved and return shipment created successfully');
         } catch (shipmentError) {
           // If shipment creation fails, still show success for the approval
           console.error('Failed to create return shipment:', shipmentError);
-          toast.warning('Return/Refund request approved, but return shipment creation failed. Please create manually.');
+          toast.warning('Return/Replacement request approved, but return shipment creation failed. Please create manually.');
         }
       } else {
-        toast.success('Return/Refund request approved successfully');
+        toast.success('Return/Replacement request approved successfully');
       }
       
       refetch();
@@ -100,7 +100,7 @@ const ReturnRefunds = () => {
         requestId: selectedRequest._id,
         rejectionMessage: rejectionMessage.trim(),
       }).unwrap();
-      toast.success('Return/Refund request rejected successfully');
+      toast.success('Return/Replacement request rejected successfully');
       setShowRejectModal(false);
       setSelectedRequest(null);
       setRejectionMessage('');
@@ -130,7 +130,7 @@ const ReturnRefunds = () => {
   const getRequestTypeBadge = (type) => {
     const typeConfig = {
       return: { color: 'bg-orange-100 text-orange-800', label: 'Return' },
-      refund: { color: 'bg-purple-100 text-purple-800', label: 'Refund' },
+      replacement: { color: 'bg-purple-100 text-purple-800', label: 'Replacement' },
     };
 
     const config = typeConfig[type] || { color: 'bg-gray-100 text-gray-800', label: type };
@@ -159,7 +159,7 @@ const ReturnRefunds = () => {
   if (error) {
     return (
       <div className="text-center py-8">
-        <p className="text-red-500">Error loading return/refund requests: {error.message}</p>
+        <p className="text-red-500">Error loading return/replacement requests: {error.message}</p>
         <Button onClick={() => refetch()} className="mt-4">
           Retry
         </Button>
@@ -172,8 +172,8 @@ const ReturnRefunds = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Return & Refund Requests</h1>
-          <p className="text-gray-600 dark:text-gray-400">Manage customer return and refund requests</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Return & Replacement Requests</h1>
+          <p className="text-gray-600 dark:text-gray-400">Manage customer return and replacement requests</p>
         </div>
       </div>
 
@@ -276,7 +276,7 @@ const ReturnRefunds = () => {
             >
               <option value="">All Types</option>
               <option value="return">Return</option>
-              <option value="refund">Refund</option>
+              <option value="replacement">Replacement</option>
             </select>
           </div>
 
@@ -334,13 +334,16 @@ const ReturnRefunds = () => {
                   Products
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Refund Amount
+                  Evidence
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  Amount
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Created At
+                  Created 
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Actions
@@ -350,8 +353,8 @@ const ReturnRefunds = () => {
             <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-gray-700">
               {returnRequests.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
-                    No return/refund requests found
+                  <td colSpan="10" className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
+                    No return/replacement requests found
                   </td>
                 </tr>
               ) : (
@@ -374,11 +377,11 @@ const ReturnRefunds = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       {getRequestTypeBadge(request.requestType)}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
-                      <div className="space-y-2">
+                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white min-w-[280px]">
+                      <div className="space-y-2 max-w-md">
                         {request.items?.map((item, idx) => (
                           <div key={idx} className="border-b border-gray-200 dark:border-gray-700 pb-2 last:border-b-0">
-                            <div className="flex items-center space-x-2 mb-1">
+                            <div className="flex items-center space-x-2">
                               {item.productId?.images?.[0] && (
                                 <img
                                   src={item.productId.images[0]}
@@ -400,43 +403,71 @@ const ReturnRefunds = () => {
                                 )}
                               </div>
                             </div>
-                            {/* Display media (images/videos) */}
-                            {item.mediaUrls && item.mediaUrls.length > 0 && (
-                              <div className="mt-2">
-                                <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                  Evidence ({item.mediaUrls.length}):
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                  {item.mediaUrls.map((mediaUrl, mediaIdx) => {
-                                    const isVideo = mediaUrl.toLowerCase().includes('.mp4') ||
-                                      mediaUrl.toLowerCase().includes('.mov') ||
-                                      mediaUrl.toLowerCase().includes('.webm') ||
-                                      mediaUrl.toLowerCase().includes('/video/');
-                                    
-                                    return (
-                                      <div key={mediaIdx} className="relative">
-                                        {isVideo ? (
-                                          <div className="w-20 h-20 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden flex items-center justify-center cursor-pointer"
-                                            onClick={() => window.open(mediaUrl, '_blank')}>
-                                            <Icon icon="heroicons:play" className="text-2xl text-gray-600 dark:text-gray-300" />
-                                          </div>
-                                        ) : (
-                                          <img
-                                            src={mediaUrl}
-                                            alt={`Evidence ${mediaIdx + 1}`}
-                                            className="w-20 h-20 rounded object-cover cursor-pointer hover:opacity-80"
-                                            onClick={() => window.open(mediaUrl, '_blank')}
-                                          />
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
                           </div>
                         ))}
                       </div>
+                    </td>
+                    {/* Evidence Column */}
+                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                      {(() => {
+                        // Collect all media URLs from all items
+                        const allMedia = request.items?.flatMap(item => item.mediaUrls || []) || [];
+                        
+                        if (allMedia.length === 0) {
+                          return (
+                            <span className="text-gray-400 dark:text-gray-500 text-xs">
+                              No evidence
+                            </span>
+                          );
+                        }
+                        
+                        return (
+                          <div className="flex flex-wrap gap-2 max-w-[200px]">
+                            {allMedia.map((mediaUrl, mediaIdx) => {
+                              const isVideo = mediaUrl.toLowerCase().includes('.mp4') ||
+                                mediaUrl.toLowerCase().includes('.mov') ||
+                                mediaUrl.toLowerCase().includes('.webm') ||
+                                mediaUrl.toLowerCase().includes('/video/');
+                              
+                              return (
+                                <div 
+                                  key={mediaIdx} 
+                                  className="relative group"
+                                  title={isVideo ? 'Click to play video' : 'Click to view image'}
+                                >
+                                  {isVideo ? (
+                                    <div 
+                                      className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden flex items-center justify-center cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                                      onClick={() => window.open(mediaUrl, '_blank')}
+                                    >
+                                      <Icon icon="heroicons:play-circle" className="text-3xl text-gray-600 dark:text-gray-300" />
+                                    </div>
+                                  ) : (
+                                    <img
+                                      src={mediaUrl}
+                                      alt={`Evidence ${mediaIdx + 1}`}
+                                      className="w-16 h-16 rounded object-cover cursor-pointer hover:opacity-80 transition-opacity border border-gray-200 dark:border-gray-600"
+                                      onClick={() => window.open(mediaUrl, '_blank')}
+                                    />
+                                  )}
+                                  {/* Badge for video */}
+                                  {isVideo && (
+                                    <span className="absolute bottom-0 right-0 bg-black bg-opacity-70 text-white text-[10px] px-1 rounded-tl">
+                                      VIDEO
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                            {/* Show count if more than 4
+                            {allMedia.length > 0 && (
+                              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 w-full">
+                                {allMedia.length} file{allMedia.length > 1 ? 's' : ''}
+                              </div>
+                            )} */}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                       {request.refundAmount && request.refundAmount > 0 
@@ -568,7 +599,7 @@ const ReturnRefunds = () => {
 
       {/* Reject Modal */}
       <Modal
-        title="Reject Return/Refund Request"
+        title="Reject Return/Replacement Request"
         label="reject-modal"
         activeModal={showRejectModal}
         onClose={() => {

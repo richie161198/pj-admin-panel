@@ -12,6 +12,9 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Textinput from "@/components/ui/Textinput";
 
+// Get server URL from environment with fallback
+const SERVER_URL = process.env.SERVER_URL || 'https://www.preciousgoldsmith.net';
+
 const currency = (n) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -56,7 +59,7 @@ const OrderDetails = () => {
       const token = getToken();
       // Query all invoices and find the one matching this order
       const response = await fetch(
-        `https://www.preciousgoldsmith.net/api/v0/invoices?limit=1000`,
+        `${SERVER_URL}/api/v0/invoices?limit=1000`,
         {
           method: 'GET',
           headers: {
@@ -96,7 +99,7 @@ const OrderDetails = () => {
     try {
       const token = getToken();
       const response = await fetch(
-        `https://www.preciousgoldsmith.net/api/v0/shipments/bvc/track/order`,
+        `${SERVER_URL}/api/v0/shipments/bvc/track/order`,
         {
           method: 'POST',
           headers: {
@@ -255,7 +258,7 @@ const OrderDetails = () => {
       }
 
       const response = await fetch(
-        `https://www.preciousgoldsmith.net/api/v0/invoices/order/${order.orderCode}/download`,
+        `${SERVER_URL}/api/v0/invoices/order/${order.orderCode}/download`,
         {
           method: 'GET',
           headers: headers,
